@@ -8,7 +8,7 @@ dust cloud?
 
 Organisation
 -------
-Cosmic Dust Group, Insitute of Space Systems (IRS), University of Space Systems, www.irs.uni-stuttgart.de
+Cosmic Dust Group, Insitute of Space Systems (IRS), University of Stuttgart, www.irs.uni-stuttgart.de
 Constellation, www.aerospaceresearch.net/constellation
 
 Contact Team: comettrails@aerospaceresearch.net
