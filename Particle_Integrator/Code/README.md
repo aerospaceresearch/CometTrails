@@ -17,7 +17,13 @@ Regards, Max
 
 
 ---Changelog---
-0.12	-14.03.3014-:
+0.13	-14.04.2014-:
+	-	switched to cmake
+	-	linux compatibility
+	-	changed library for .ini-file parsing
+	-	easily switch timing printouts
+
+0.12	-14.03.2014-:
 	-	fixed a bug that led to a wrong evaluation of solar radiation pressure
 	
 0.11	-06.03.2014-:
