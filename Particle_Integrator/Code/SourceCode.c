@@ -57,9 +57,7 @@ int read_configuration(char *inputfpath, char *outputpath, int *number_of_thread
 int main(void)
 {
 	//Print version
-	char  * versn;
-	versn = "0.12";
-	printf("ParticleIntegrator version %s\n", versn);
+	printf("ParticleIntegrator version " PI_VERSION_MAJOR "." PI_VERSION_MINOR "\n");
 
 	//Create some variables
 	int j, e, p, g, c, error_code = 0, particles_count = 0, particles_done = 0, number_of_threads = 0, first_particle_number = 0, n, N_bodys, body_int[10], nCommentLines = 0;
