@@ -214,3 +214,4 @@ pip-log.txt
 #Mr Developer
 .mr.developer.cfg
 Particle_Integrator/Code/CMake/
+Particle_Integrator/Code/cspice/

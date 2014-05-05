@@ -23,12 +23,13 @@ int main(void)
 	//Print version
 	char  * versn;
 	versn = "0.12";
-	printf("PartikelIntegrator version %s\n", versn);
+	printf("ParticleIntegrator version %s\n", versn);
 
 	//Create some variables
 	int j, e, p, g, c, error_code = 0, particles_count = 0, particles_done = 0, number_of_threads = 0, first_particle_number = 0, n, N_bodys, body_int[10];
 	SpiceDouble final_time = 0, start_time_save = 0, dv_step = 0, particle_mass = 0, particle_density = 0, GM[10];
 	char temp[200], *next_token = NULL, inputpath[200] = "INPUT\\", outputpath[200] = "OUTPUT\\", already_done_path[200] = "INPUT\\processed_particles.txt";
+	bool commentLine = false;
 
 	//Load Spice kernels
 	printf("\nLoading kernels...		");
@@ -56,14 +57,24 @@ int main(void)
 		//Sleep(4000);
 		return 1;
 	}
-	while ((c = fgetc(particles_start_file)) != EOF)
+	while ((c = fgetc(particles_start_file)) != EOF) //#tmp# this crashes if the last line is empty! the implementation relies on the number of lines being number of particles + 1 (+ 5 ocmment lines). > not nice
 	{
+		if (c == '%')
+		{
+			commentLine = true;
+		}
 		if (c == '\n')
 		{
-			particles_count++;
+			if (commentLine == false)
+			{
+				particles_count++;
+			}
+			else
+			{
+				commentLine = false;
+			}
 		}
 	}
-	particles_count -= 5;
 	particles_start = malloc((particles_count + 1) * sizeof(int *));
 	for (j = 0; j < particles_count; j++)
 	{
@@ -701,10 +712,10 @@ int read_configuration(char *inputpath, char *outputpath, int *number_of_threads
 	strcat_s(configpath, 200, "configuration.ini");
 	
 	//Set number of threads (Default is 1)
-	*number_of_threads = GetPrivateProfileInt("simulation", "NUMBER_OF_THREADS", 1, configpath);
+    *number_of_threads = GetPrivateProfileIntA("simulation", "NUMBER_OF_THREADS", 1, configpath);
 
 	//Set final date of the simulation
-	GetPrivateProfileString("simulation", "FINAL_TIME", "", temp, sizeof(temp), configpath);
+    GetPrivateProfileStringA("simulation", "FINAL_TIME", "", temp, sizeof(temp), configpath);
 	if (strcmp(temp, "") == 0)
 	{
 		printf("\n\nerror:	FINAL_TIME not set");
@@ -714,7 +725,7 @@ int read_configuration(char *inputpath, char *outputpath, int *number_of_threads
 	str2et_c(temp, final_time);
 
 	//Set start date for saving
-	GetPrivateProfileString("simulation", "START_TIME_SAVE", "", temp, sizeof(temp), configpath);
+    GetPrivateProfileStringA("simulation", "START_TIME_SAVE", "", temp, sizeof(temp), configpath);
 	if (strcmp(temp, "") == 0)
 	{
 		sprintf_s(temp, 200, "1 JAN 1000");
@@ -722,7 +733,7 @@ int read_configuration(char *inputpath, char *outputpath, int *number_of_threads
 	str2et_c(temp, start_time_save);
 	
 	//Set bodys
-	*N_bodys = GetPrivateProfileInt("simulation", "N_BODYS", 0, configpath);
+    *N_bodys = GetPrivateProfileIntA("simulation", "N_BODYS", 0, configpath);
 	if (*N_bodys == 0)
 	{
 		printf("\n\nerror:	N_BODYS not set");
@@ -730,7 +741,7 @@ int read_configuration(char *inputpath, char *outputpath, int *number_of_threads
 		return 1;
 	}
 	
-	GetPrivateProfileString("simulation", "BODYS_ID", "", temp, sizeof(temp), configpath);
+    GetPrivateProfileStringA("simulation", "BODYS_ID", "", temp, sizeof(temp), configpath);
 	token = strtok_s(temp, " ", &next_token);
 	
 	for (j = 0; j < *N_bodys; j++)
@@ -743,15 +754,15 @@ int read_configuration(char *inputpath, char *outputpath, int *number_of_threads
 		}
 		sscanf_s(token, "%d", &body_int[j]);
 		token = strtok_s(NULL, " ", &next_token);
-		bodvar_c(body_int[j], "GM", &dim, &GM[j]);		
+		bodvar_c(body_int[j], "GM", &dim, &GM[j]);
 	}
 
 	//Set step size control
-	GetPrivateProfileString("simulation", "DV_STEP", "10e-5", temp, sizeof(temp), configpath);
+    GetPrivateProfileStringA("simulation", "DV_STEP", "10e-5", temp, sizeof(temp), configpath);
 	sscanf_s(temp, "%lf", dv_step);
 	
 	//Set which nth state is saved to disc
-	int nf = GetPrivateProfileInt("simulation", "SAVE_NTH_MULTIPLIER", 20, configpath);
+    int nf = GetPrivateProfileIntA("simulation", "SAVE_NTH_MULTIPLIER", 20, configpath);
 	if (nf == 0)
 	{
 		//Save every 10nth state. This produces high density of states in the output file and is intended to be used when testing the integrator.
@@ -763,10 +774,10 @@ int read_configuration(char *inputpath, char *outputpath, int *number_of_threads
 	}
 
 	//Set which particle to start and end with (particle number, from 1 to the number of particles in the input file)
-	*first_particle_number = GetPrivateProfileInt("particles", "FIRST_PARTICLE_NUMBER", 1, configpath);
+    *first_particle_number = GetPrivateProfileIntA("particles", "FIRST_PARTICLE_NUMBER", 1, configpath);
 	
 	//Set name of the input/output file
-	GetPrivateProfileString("particles", "PARTICLE_INPUT_FILE_NAME", "", temp, sizeof(temp), configpath);
+    GetPrivateProfileStringA("particles", "PARTICLE_INPUT_FILE_NAME", "", temp, sizeof(temp), configpath);
 	if (strcmp(temp, "") == 0)
 	{
 		printf("\n\nerror:	PARTICLE_INPUT_FILE_NAME not set");
@@ -775,23 +786,23 @@ int read_configuration(char *inputpath, char *outputpath, int *number_of_threads
 	}
 	strcat_s(inputpath, 200, temp);
 	strcat_s(inputpath, 200, ".txt");
-	GetPrivateProfileString("particles", "PARTICLE_OUTPUT_FILE_NAME", temp, temp, sizeof(temp), configpath);
+    GetPrivateProfileStringA("particles", "PARTICLE_OUTPUT_FILE_NAME", temp, temp, sizeof(temp), configpath);
 	_mkdir(outputpath);
 	strcat_s(outputpath, 200, temp);
 
 	//Set mass of particles
-	GetPrivateProfileString("particles", "PARTICLE_MASS", "0", temp, sizeof(temp), configpath);
+    GetPrivateProfileStringA("particles", "PARTICLE_MASS", "0", temp, sizeof(temp), configpath);
 	sscanf_s(temp, "%lf", particle_mass);
 	if (*particle_mass > 0)
 	{
 		//Set density of particles
-		GetPrivateProfileString("particles", "PARTICLE_DENSITY", "1000", temp, sizeof(temp), configpath);
+        GetPrivateProfileStringA("particles", "PARTICLE_DENSITY", "1000", temp, sizeof(temp), configpath);
 		sscanf_s(temp, "%lf", particle_density);
 
 		//Manipulate sun mass to simulate solar pressure
 		SpiceDouble Qpr, PI, particle_radius, beta;
 		Qpr = 1.0;
-		PI = 3.1416;
+		PI = 3.14159;
 		particle_radius = pow( (*particle_mass) / ((1.3333) * PI * (*particle_density)), 0.3333 );
 		beta = 5.7e-4 * (Qpr / ( (*particle_density) * particle_radius) );
 		for (j = 0; j < *N_bodys; j++)

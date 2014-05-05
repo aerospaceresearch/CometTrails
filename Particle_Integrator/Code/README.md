@@ -1,4 +1,4 @@
-PartikelIntegrator
+ParticleIntegrator
 Version 0.12
 
 -	put your particle file in \\INPUT
