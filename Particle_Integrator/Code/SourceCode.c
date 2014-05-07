@@ -795,7 +795,7 @@ int read_configuration(char *inputfpath, char *outputpath, int *number_of_thread
 	config.mult = 20;
 	config.nthreads = 1;
 	config.inputfn = "";
-	config.outputfn = "particle";
+	config.outputfn = "default";
 	config.pmass = 0;
 	config.pdensity = 1000;
 	config.fpnum = 1;
@@ -890,7 +890,7 @@ int read_configuration(char *inputfpath, char *outputpath, int *number_of_thread
 		//Manipulate sun mass to simulate solar pressure
 		SpiceDouble Qpr, PI, particle_radius, beta;
 		Qpr = 1.0;
-		PI = 3.14159;
+		PI = 3.1416;
 		particle_radius = pow( (*particle_mass) / ((1.3333) * PI * (*particle_density)), 0.3333 );
 		beta = 5.7e-4 * (Qpr / ( (*particle_density) * particle_radius) );
 		for (j = 0; j < *N_bodys; j++)
