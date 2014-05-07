@@ -39,28 +39,30 @@
 	#define sprintf_s snprintf
 #endif
 
-#ifdef _WIN32
+#ifdef _WIN32 // platform-specific separators in paths
 	#define OS_SEP "\\"
 #else
 	#define OS_SEP "/"
 #endif
 // END Function cross-platform compatibility
 
+
 void calc_accel(int N_bodys, SpiceDouble GM[], SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel);
-int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final_time, SpiceDouble start_time_save, SpiceDouble dv_step, SpiceDouble *nstate, char outputpath[], int n, int particles_count);
+int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final_time, SpiceDouble start_time_save, SpiceDouble dv_step, SpiceDouble *nstate, FILE *statefile, int n, int particles_count);
 bool particle_already_processed(int p, char already_done_path[]);
 bool particle_incomplete(char outputpath[], SpiceDouble *nstate);
-int read_configuration(char *inputfpath, char *outputpath, int *number_of_threads, SpiceDouble *final_time, SpiceDouble *start_time_final, int *N_bodys, int *body_int, SpiceDouble *GM, SpiceDouble *dv_step, int *n, int *first_particle_number, SpiceDouble *particle_mass, SpiceDouble *particle_density);
+int read_configuration(char *inputfpath, char *outputpath, int *number_of_threads, SpiceDouble *final_time, SpiceDouble *start_time_final, int *N_bodys, int *body_int, SpiceDouble *GM, SpiceDouble *dv_step, int *n, int *first_particle_number, SpiceDouble *particle_mass, SpiceDouble *particle_density, int *save_as_binary);
+int printpdata(FILE *statefile, SpiceDouble *nstate);
 
 
-//Main Programm
+//Main Program
 int main(void)
 {
 	//Print version
 	printf("ParticleIntegrator version " PI_VERSION_MAJOR "." PI_VERSION_MINOR "\n");
 
 	//Create some variables
-	int j, e, p, g, c, error_code = 0, particles_count = 0, particles_done = 0, number_of_threads = 0, first_particle_number = 0, n, N_bodys, body_int[10], nCommentLines = 0;
+	int j, e, p, g, c, error_code = 0, particles_count = 0, particles_done = 0, number_of_threads = 0, first_particle_number = 0, n, N_bodys, body_int[10], nCommentLines = 0, save_as_binary = 0;
 	SpiceDouble final_time = 0, start_time_save = 0, dv_step = 0, particle_mass = 0, particle_density = 0, GM[10];
 	char temp[260], *next_token = NULL, inputfpath[260] = "", outputpath[260] = ("OUTPUT" OS_SEP), already_done_path[260] = "INPUT" OS_SEP "processed_particles.txt";
 	bool commentLine = false;
@@ -72,7 +74,7 @@ int main(void)
 
 	//READ CONFIG FILE
 	printf("\nLoading configuration...	");
-	if (read_configuration(inputfpath, outputpath, &number_of_threads, &final_time, &start_time_save, &N_bodys, body_int, GM, &dv_step, &n, &first_particle_number, &particle_mass, &particle_density) != 0)
+	if (read_configuration(inputfpath, outputpath, &number_of_threads, &final_time, &start_time_save, &N_bodys, body_int, GM, &dv_step, &n, &first_particle_number, &particle_mass, &particle_density, &save_as_binary) != 0)
 	{
 		printf("\n\nerror:	could not read configuration.\n");
 		//SLEEP(4000);
@@ -142,6 +144,7 @@ int main(void)
 	//Print config
 	if (number_of_threads > 1)
 		printf("\n number of threads	= %d", number_of_threads);
+	printf("\n save as binary   	= %d", save_as_binary);
 	printf("\n final_time		= %le", final_time);
 	if (start_time_save > (double) -3.155e+10)
 		printf("\n start_time_save	= %le", start_time_save);
@@ -281,7 +284,7 @@ int main(void)
 					}
 					else
 					{
-						fprintf(init, "%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\n", (nstate)[0], (nstate)[1], (nstate)[2], (nstate)[3], (nstate)[4], (nstate)[5], (nstate)[6]);
+						printpdata(init, nstate);
 						fclose(init);
 						break;
 					}
@@ -289,12 +292,23 @@ int main(void)
 			}
 
 
+			//Create File for output
+			FILE *statefile;
+			fopen_s(&statefile, particle_path, "a");
+			if (statefile == NULL)
+			{
+				printf("\nerror: could not write to output file");
+				err = 1;
+			}
+
 			//Integrate particle
 			if (err == 0)
 			{
-				err = RungeKutta4(N_bodys, body_int, GM, final_time, start_time_save, dv_step, nstate, particle_path, n, particles_count);
+				err = RungeKutta4(N_bodys, body_int, GM, final_time, start_time_save, dv_step, nstate, statefile, n, particles_count);
 			}
 			
+			fclose(statefile);
+
 
 			//Write the particle number to the already-done file and update progress.txt
 			FILE* done;
@@ -397,21 +411,12 @@ int main(void)
 
 //Functions
 
-int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final_time, SpiceDouble start_time_save, SpiceDouble dv_step, SpiceDouble *nstate, char particle_path[], int n, int particles_count)
+int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final_time, SpiceDouble start_time_save, SpiceDouble dv_step, SpiceDouble *nstate, FILE *statefile, int n, int particles_count)
 {
 	//Create some variables
 	int j, i = 0;
 	SpiceDouble lt, dt, dt2;
 	
-	//Create File for output
-	FILE *statefile;
-	fopen_s(&statefile, particle_path, "a");
-	if (statefile == NULL)
-	{
-		printf("\nerror: could not write to output file");
-		return 1;
-	}
-
 	//Create body arrays and set initial body positions
 	SpiceDouble **body_pre, **body_mid, **body_end;
 	body_pre = malloc(N_bodys * sizeof(SpiceDouble *));
@@ -444,6 +449,11 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 	SpiceDouble k_acc_1[3], k_acc_2[3], k_acc_3[3], k_acc_4[3];
 	SpiceDouble k_vel_1[3], k_vel_2[3], k_vel_3[3], k_vel_4[3];
 	
+#ifdef __WTIMESTEP
+	SpiceDouble dtmin = final_time - nstate[6], dtmax = 0.0;
+	int numsteps = 0;
+#endif
+
 	//Integrate
 	while (nstate[6] < final_time)
 	{
@@ -477,6 +487,18 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 		dt = (dv_step / abs_acc);
 		dt2 = dt / 2;
 
+#ifdef __WTIMESTEP
+		if (dt < dtmin) // calculate smallest time step
+		{
+			dtmin = dt;
+		}
+		else if (dt > dtmax) // calculate larges time step
+		{
+			dtmax = dt;
+		}
+		numsteps++;
+#endif
+		
 		/*if ((*nstate)[i][6] - dt < final_time)
 		{
 			dt = fabs(final_time - (*nstate)[i][6]);
@@ -489,7 +511,7 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 			{
 				//Critical section is only executed on one thread at a time (spice is not threadsafe)
 				spkezp_c(body_int[j], initTime + dt, "ECLIPJ2000", "NONE", 0, body_end[j], &lt);
-			} // ~73% of all computing time is spent here, mostly in spkgps
+			} // ~94% of all computing time is spent here, mostly in spkgps
 			body_mid[j][0] = (body_pre[j][0] + body_end[j][0]) / 2;
 			body_mid[j][1] = (body_pre[j][1] + body_end[j][1]) / 2;
 			body_mid[j][2] = (body_pre[j][2] + body_end[j][2]) / 2;
@@ -539,7 +561,7 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 		{
 			if (nstate[6] > start_time_save)
 			{
-				fprintf(statefile, "%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\n", (nstate)[0], (nstate)[1], (nstate)[2], (nstate)[3], (nstate)[4], (nstate)[5], (nstate)[6]);
+				printpdata(statefile, nstate);
 			}
 			i = 0;
 		}
@@ -548,11 +570,8 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 	//Print last state to file and close file
 	if (i /*!= 0*/)
 	{
-		for (j = 0; j < 6; j++)
-		fprintf(statefile, "%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\n", (nstate)[0], (nstate)[1], (nstate)[2], (nstate)[3], (nstate)[4], (nstate)[5], (nstate)[6]);
+		printpdata(statefile, nstate);
 	}
-	fclose(statefile);
-
 	
 	//Deallocate body array
 	for (j = 0; j < N_bodys; j++)
@@ -565,6 +584,12 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 	free(body_mid);
 	free(body_end);
 
+#ifdef __WTIMESTEP
+	printf("\n   Smallest time step: %.6le s", dtmin);
+	printf("  -  Largest time step: %.6le s", dtmax);
+	printf("  -  Total number of steps: %d k", numsteps/1000);
+#endif
+
 	return 0;
 }
 
@@ -572,22 +597,24 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 
 void calc_accel(int N_bodys, SpiceDouble GM[], SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel)
 {
-	SpiceDouble direct_body[3], distance_pow3, GMr3;
+	SpiceDouble direct_body[3], r3, GMr3, absr;
+	int b; // body
+
 	accel[0] = 0;
 	accel[1] = 0;
 	accel[2] = 0;
 	
-	int b;
 	for (b = 0; b < N_bodys; b++)
 	{
 		direct_body[0] = (*body_state)[b][0] + dir_SSB[0];
 		direct_body[1] = (*body_state)[b][1] + dir_SSB[1];
 		direct_body[2] = (*body_state)[b][2] + dir_SSB[2];
-		distance_pow3 = pow(direct_body[0] * direct_body[0] + direct_body[1] * direct_body[1] + direct_body[2] * direct_body[2], 1.5);
-		GMr3 = GM[b] / distance_pow3;
+		absr = sqrt(direct_body[0] * direct_body[0] + direct_body[1] * direct_body[1] + direct_body[2] * direct_body[2]); // abs(distance)
+		r3 = absr*absr*absr; // ~ten times faster than pow((r1^2 + r2^2 + r3^2),1.5)
+		GMr3 = GM[b] / r3;
+		accel[2] += GMr3 * direct_body[2];
 		accel[0] += GMr3 * direct_body[0];
 		accel[1] += GMr3 * direct_body[1];
-		accel[2] += GMr3 * direct_body[2];
 	}
 }
 
@@ -712,6 +739,8 @@ bool particle_incomplete(char particle_path[], SpiceDouble *nstate)
 	return answer;
 }
 
+
+
 /* define the struct type for the config file readout */
 typedef struct
 {
@@ -723,6 +752,7 @@ typedef struct
 	const char* dvstep;
 	int mult;
 	int nthreads;
+	int saveas_binary;
 	// Particles
 	const char* inputfn;
 	const char* outputfn;
@@ -757,6 +787,9 @@ static int handler(void* user, const char* section, const char* name, const char
 	else if (MATCH("simulation", "NUMBER_OF_THREADS")) {
 		pconfig->nthreads = atoi(value);
 	}
+	else if (MATCH("simulation", "SAVE_AS_BINARY")) {
+		pconfig->saveas_binary = atoi(value);
+	}
 	else if (MATCH("particles", "PARTICLE_INPUT_FILE_NAME")) {
 		pconfig->inputfn = strdup(value);
 	}
@@ -778,7 +811,7 @@ static int handler(void* user, const char* section, const char* name, const char
 	return 1;
 }
 
-int read_configuration(char *inputfpath, char *outputpath, int *number_of_threads, SpiceDouble *final_time, SpiceDouble *start_time_save, int *N_bodys, int *body_int, SpiceDouble *GM, SpiceDouble *dv_step, int *n, int *first_particle_number, SpiceDouble *particle_mass, SpiceDouble *particle_density)
+int read_configuration(char *inputfpath, char *outputpath, int *number_of_threads, SpiceDouble *final_time, SpiceDouble *start_time_save, int *N_bodys, int *body_int, SpiceDouble *GM, SpiceDouble *dv_step, int *n, int *first_particle_number, SpiceDouble *particle_mass, SpiceDouble *particle_density, int *save_as_binary)
 {
 	char temp[260], *token, *next_token = NULL, inputpath[260] = ("INPUT" OS_SEP), configpath[260] = "";
     SpiceInt dim, j;
@@ -794,6 +827,7 @@ int read_configuration(char *inputfpath, char *outputpath, int *number_of_thread
 	config.dvstep = "10e-5";
 	config.mult = 20;
 	config.nthreads = 1;
+	config.saveas_binary = 0;
 	config.inputfn = "";
 	config.outputfn = "default";
 	config.pmass = 0;
@@ -808,6 +842,8 @@ int read_configuration(char *inputfpath, char *outputpath, int *number_of_thread
 
 	//Set number of threads
 	*number_of_threads = config.nthreads;
+
+	*save_as_binary = config.saveas_binary;
 
 	//Set final date of the simulation
 	if (strcmp(config.finaltime, "") == 0)
@@ -902,6 +938,15 @@ int read_configuration(char *inputfpath, char *outputpath, int *number_of_thread
 			}
 		}
 	}
+
+	return 0;
+}
+
+
+
+int printpdata(FILE *statefile, SpiceDouble *nstate)
+{
+	fprintf(statefile, "%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\n", (nstate)[0], (nstate)[1], (nstate)[2], (nstate)[3], (nstate)[4], (nstate)[5], (nstate)[6]);
 
 	return 0;
 }
