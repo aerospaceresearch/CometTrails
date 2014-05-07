@@ -21,7 +21,10 @@ IF(CMAKE_COMPILER_IS_GNUCC)
 include_directories(/usr/include)
 ENDIF()
 
-add_executable(PIntegrator SourceCode.c)
+add_executable(
+	PIntegrator SourceCode.c
+	resources/pintegrator.rc
+)
 
 option (WTIMING
     "Measure computing duration" ON)
