@@ -511,7 +511,7 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 			{
 				//Critical section is only executed on one thread at a time (spice is not threadsafe)
 				spkezp_c(body_int[j], initTime + dt, "ECLIPJ2000", "NONE", 0, body_end[j], &lt);
-			} // ~73% of all computing time is spent here, mostly in spkgps
+			} // ~94% of all computing time is spent here, mostly in spkgps
 			body_mid[j][0] = (body_pre[j][0] + body_end[j][0]) / 2;
 			body_mid[j][1] = (body_pre[j][1] + body_end[j][1]) / 2;
 			body_mid[j][2] = (body_pre[j][2] + body_end[j][2]) / 2;
@@ -597,22 +597,24 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 
 void calc_accel(int N_bodys, SpiceDouble GM[], SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel)
 {
-	SpiceDouble direct_body[3], distance_pow3, GMr3;
+	SpiceDouble direct_body[3], r3, GMr3, absr;
+	int b; // body
+
 	accel[0] = 0;
 	accel[1] = 0;
 	accel[2] = 0;
 	
-	int b;
 	for (b = 0; b < N_bodys; b++)
 	{
 		direct_body[0] = (*body_state)[b][0] + dir_SSB[0];
 		direct_body[1] = (*body_state)[b][1] + dir_SSB[1];
 		direct_body[2] = (*body_state)[b][2] + dir_SSB[2];
-		distance_pow3 = pow(direct_body[0] * direct_body[0] + direct_body[1] * direct_body[1] + direct_body[2] * direct_body[2], 1.5);
-		GMr3 = GM[b] / distance_pow3;
+		absr = sqrt(direct_body[0] * direct_body[0] + direct_body[1] * direct_body[1] + direct_body[2] * direct_body[2]); // abs(distance)
+		r3 = absr*absr*absr; // ~ten times faster than pow((r1^2 + r2^2 + r3^2),1.5)
+		GMr3 = GM[b] / r3;
+		accel[2] += GMr3 * direct_body[2];
 		accel[0] += GMr3 * direct_body[0];
 		accel[1] += GMr3 * direct_body[1];
-		accel[2] += GMr3 * direct_body[2];
 	}
 }
 
