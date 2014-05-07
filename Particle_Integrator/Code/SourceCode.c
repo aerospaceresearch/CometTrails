@@ -39,7 +39,7 @@
 	#define sprintf_s snprintf
 #endif
 
-#ifdef _WIN32
+#ifdef _WIN32 // platform-specific separators in paths
 	#define OS_SEP "\\"
 #else
 	#define OS_SEP "/"
@@ -53,7 +53,7 @@ bool particle_incomplete(char outputpath[], SpiceDouble *nstate);
 int read_configuration(char *inputfpath, char *outputpath, int *number_of_threads, SpiceDouble *final_time, SpiceDouble *start_time_final, int *N_bodys, int *body_int, SpiceDouble *GM, SpiceDouble *dv_step, int *n, int *first_particle_number, SpiceDouble *particle_mass, SpiceDouble *particle_density, int *save_as_binary);
 
 
-//Main Programm
+//Main Program
 int main(void)
 {
 	//Print version
@@ -445,6 +445,11 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 	SpiceDouble k_acc_1[3], k_acc_2[3], k_acc_3[3], k_acc_4[3];
 	SpiceDouble k_vel_1[3], k_vel_2[3], k_vel_3[3], k_vel_4[3];
 	
+#ifdef __WTIMESTEP
+	SpiceDouble dtmin = final_time - nstate[6], dtmax = 0.0;
+	int numsteps = 0;
+#endif
+
 	//Integrate
 	while (nstate[6] < final_time)
 	{
@@ -478,6 +483,18 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 		dt = (dv_step / abs_acc);
 		dt2 = dt / 2;
 
+#ifdef __WTIMESTEP
+		if (dt < dtmin) // calculate smallest time step
+		{
+			dtmin = dt;
+		}
+		else if (dt > dtmax) // calculate larges time step
+		{
+			dtmax = dt;
+		}
+		numsteps++;
+#endif
+		
 		/*if ((*nstate)[i][6] - dt < final_time)
 		{
 			dt = fabs(final_time - (*nstate)[i][6]);
@@ -565,6 +582,12 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 	free(body_pre);
 	free(body_mid);
 	free(body_end);
+
+#ifdef __WTIMESTEP
+	printf("\n   Smallest time step: %.6le s", dtmin);
+	printf("  -  Largest time step: %.6le s", dtmax);
+	printf("  -  Total number of steps: %d k", numsteps/1000);
+#endif
 
 	return 0;
 }
