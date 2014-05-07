@@ -111,7 +111,7 @@ int main(void)
 			}
 		}
 	}
-	particles_start = malloc((particles_count + 1) * sizeof(int *));
+	particles_start = malloc((particles_count + 1) * sizeof(SpiceDouble *));
 	for (j = 0; j < particles_count; j++)
 	{
 		particles_start[j] = malloc(8 * sizeof(SpiceDouble));
@@ -281,13 +281,7 @@ int main(void)
 					}
 					else
 					{
-						char temp[260] = "";
-						for (j = 0; j < 6; j++)
-						{
-							sprintf_s(temp, 260, "%.16le\t", (nstate)[j]);
-						}
-						sprintf_s(temp, 260, "%.16le\n", (nstate)[6]);
-						fprintf(init, "%s", temp);
+						fprintf(init, "%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\n", (nstate)[0], (nstate)[1], (nstate)[2], (nstate)[3], (nstate)[4], (nstate)[5], (nstate)[6]);
 						fclose(init);
 						break;
 					}
@@ -420,9 +414,9 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 
 	//Create body arrays and set initial body positions
 	SpiceDouble **body_pre, **body_mid, **body_end;
-	body_pre = malloc(N_bodys * sizeof(int *));
-	body_mid = malloc(N_bodys * sizeof(int *));
-	body_end = malloc(N_bodys * sizeof(int *));
+	body_pre = malloc(N_bodys * sizeof(SpiceDouble *));
+	body_mid = malloc(N_bodys * sizeof(SpiceDouble *));
+	body_end = malloc(N_bodys * sizeof(SpiceDouble *));
 	if (body_pre == NULL || body_mid == NULL || body_end == NULL)
 	{
 		printf("\nerror: could not allocate body state array (OOM)");
@@ -483,7 +477,6 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 		dt = (dv_step / abs_acc);
 		dt2 = dt / 2;
 
-		
 		/*if ((*nstate)[i][6] - dt < final_time)
 		{
 			dt = fabs(final_time - (*nstate)[i][6]);
@@ -496,7 +489,7 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 			{
 				//Critical section is only executed on one thread at a time (spice is not threadsafe)
 				spkezp_c(body_int[j], initTime + dt, "ECLIPJ2000", "NONE", 0, body_end[j], &lt);
-			}
+			} // ~73% of all computing time is spent here, mostly in spkgps
 			body_mid[j][0] = (body_pre[j][0] + body_end[j][0]) / 2;
 			body_mid[j][1] = (body_pre[j][1] + body_end[j][1]) / 2;
 			body_mid[j][2] = (body_pre[j][2] + body_end[j][2]) / 2;
@@ -538,7 +531,6 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 		nstate[5] = initVel[2] + dt * (k_acc_1[2] + 2 * k_acc_2[2] + 2 * k_acc_3[2] + k_acc_4[2]) / 6;
 		nstate[6] = initTime + dt;
 
-
 		//Increase StepCount
 		i++;	
 
@@ -547,28 +539,17 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 		{
 			if (nstate[6] > start_time_save)
 			{
-				char temp[260] = "";
-				for (j = 0; j < 6; j++)
-				{
-					sprintf_s(temp, 260, "%.16le\t", (nstate)[j]);
-				}
-				sprintf_s(temp, 260, "%.16le\n", (nstate)[6]);
-				fprintf(statefile, "%s", temp);
+				fprintf(statefile, "%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\n", (nstate)[0], (nstate)[1], (nstate)[2], (nstate)[3], (nstate)[4], (nstate)[5], (nstate)[6]);
 			}
 			i = 0;
 		}
 	}
 
 	//Print last state to file and close file
-	if (i != 0)
+	if (i /*!= 0*/)
 	{
-		char temp[260] = "";
 		for (j = 0; j < 6; j++)
-		{
-			sprintf_s(temp, 260, "%.16le\t", (nstate)[j]);
-		}
-		sprintf_s(temp, 260, "%.16le\n", (nstate)[6]);
-		fprintf(statefile, "%s", temp);
+		fprintf(statefile, "%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\n", (nstate)[0], (nstate)[1], (nstate)[2], (nstate)[3], (nstate)[4], (nstate)[5], (nstate)[6]);
 	}
 	fclose(statefile);
 
@@ -814,7 +795,7 @@ int read_configuration(char *inputfpath, char *outputpath, int *number_of_thread
 	config.mult = 20;
 	config.nthreads = 1;
 	config.inputfn = "";
-	config.outputfn = "replace";
+	config.outputfn = "particle";
 	config.pmass = 0;
 	config.pdensity = 1000;
 	config.fpnum = 1;
@@ -861,7 +842,7 @@ int read_configuration(char *inputfpath, char *outputpath, int *number_of_thread
 		}
 		sscanf(token, "%d", &body_int[j]);
 		token = strtok_r(NULL, " ", &next_token);
-		bodvar_c(body_int[j], "GM", &dim, &GM[j]);
+		bodvcd_c(body_int[j], "GM", *N_bodys, &dim, &GM[j]); // Get standard gravitational parameter of each body (GM)
 	}
 
 	//Set step size control
