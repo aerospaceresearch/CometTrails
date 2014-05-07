@@ -46,11 +46,13 @@
 #endif
 // END Function cross-platform compatibility
 
+
 void calc_accel(int N_bodys, SpiceDouble GM[], SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel);
-int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final_time, SpiceDouble start_time_save, SpiceDouble dv_step, SpiceDouble *nstate, char outputpath[], int n, int particles_count);
+int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final_time, SpiceDouble start_time_save, SpiceDouble dv_step, SpiceDouble *nstate, FILE *statefile, int n, int particles_count);
 bool particle_already_processed(int p, char already_done_path[]);
 bool particle_incomplete(char outputpath[], SpiceDouble *nstate);
 int read_configuration(char *inputfpath, char *outputpath, int *number_of_threads, SpiceDouble *final_time, SpiceDouble *start_time_final, int *N_bodys, int *body_int, SpiceDouble *GM, SpiceDouble *dv_step, int *n, int *first_particle_number, SpiceDouble *particle_mass, SpiceDouble *particle_density, int *save_as_binary);
+int printpdata(FILE *statefile, SpiceDouble *nstate);
 
 
 //Main Program
@@ -282,7 +284,7 @@ int main(void)
 					}
 					else
 					{
-						fprintf(init, "%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\n", (nstate)[0], (nstate)[1], (nstate)[2], (nstate)[3], (nstate)[4], (nstate)[5], (nstate)[6]);
+						printpdata(init, nstate);
 						fclose(init);
 						break;
 					}
@@ -290,12 +292,23 @@ int main(void)
 			}
 
 
+			//Create File for output
+			FILE *statefile;
+			fopen_s(&statefile, particle_path, "a");
+			if (statefile == NULL)
+			{
+				printf("\nerror: could not write to output file");
+				err = 1;
+			}
+
 			//Integrate particle
 			if (err == 0)
 			{
-				err = RungeKutta4(N_bodys, body_int, GM, final_time, start_time_save, dv_step, nstate, particle_path, n, particles_count);
+				err = RungeKutta4(N_bodys, body_int, GM, final_time, start_time_save, dv_step, nstate, statefile, n, particles_count);
 			}
 			
+			fclose(statefile);
+
 
 			//Write the particle number to the already-done file and update progress.txt
 			FILE* done;
@@ -398,21 +411,12 @@ int main(void)
 
 //Functions
 
-int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final_time, SpiceDouble start_time_save, SpiceDouble dv_step, SpiceDouble *nstate, char particle_path[], int n, int particles_count)
+int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final_time, SpiceDouble start_time_save, SpiceDouble dv_step, SpiceDouble *nstate, FILE *statefile, int n, int particles_count)
 {
 	//Create some variables
 	int j, i = 0;
 	SpiceDouble lt, dt, dt2;
 	
-	//Create File for output
-	FILE *statefile;
-	fopen_s(&statefile, particle_path, "a");
-	if (statefile == NULL)
-	{
-		printf("\nerror: could not write to output file");
-		return 1;
-	}
-
 	//Create body arrays and set initial body positions
 	SpiceDouble **body_pre, **body_mid, **body_end;
 	body_pre = malloc(N_bodys * sizeof(SpiceDouble *));
@@ -557,7 +561,7 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 		{
 			if (nstate[6] > start_time_save)
 			{
-				fprintf(statefile, "%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\n", (nstate)[0], (nstate)[1], (nstate)[2], (nstate)[3], (nstate)[4], (nstate)[5], (nstate)[6]);
+				printpdata(statefile, nstate);
 			}
 			i = 0;
 		}
@@ -566,11 +570,8 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 	//Print last state to file and close file
 	if (i /*!= 0*/)
 	{
-		for (j = 0; j < 6; j++)
-		fprintf(statefile, "%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\n", (nstate)[0], (nstate)[1], (nstate)[2], (nstate)[3], (nstate)[4], (nstate)[5], (nstate)[6]);
+		printpdata(statefile, nstate);
 	}
-	fclose(statefile);
-
 	
 	//Deallocate body array
 	for (j = 0; j < N_bodys; j++)
@@ -735,6 +736,8 @@ bool particle_incomplete(char particle_path[], SpiceDouble *nstate)
 	}
 	return answer;
 }
+
+
 
 /* define the struct type for the config file readout */
 typedef struct
@@ -933,6 +936,15 @@ int read_configuration(char *inputfpath, char *outputpath, int *number_of_thread
 			}
 		}
 	}
+
+	return 0;
+}
+
+
+
+int printpdata(FILE *statefile, SpiceDouble *nstate)
+{
+	fprintf(statefile, "%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\n", (nstate)[0], (nstate)[1], (nstate)[2], (nstate)[3], (nstate)[4], (nstate)[5], (nstate)[6]);
 
 	return 0;
 }
