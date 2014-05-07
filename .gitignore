@@ -215,3 +215,12 @@ pip-log.txt
 .mr.developer.cfg
 Particle_Integrator/Code/CMake/
 Particle_Integrator/Code/cspice/
+Particle_Integrator/Test/progress.txt
+*.dll
+*.bsp
+*.tpc
+*.pc
+*.tls
+*.exe
+Particle_Integrator/Test/INPUT/processed_particles.txt
+Particle_Integrator/Test/OUTPUT/
