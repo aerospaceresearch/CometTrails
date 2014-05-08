@@ -80,6 +80,7 @@ int main(void)
 	config_out.first_particle_number = 0;
 	config_out.particle_mass = 0;
 	config_out.particle_density = 0;
+	config_out.save_as_binary = 0;
 	
 	//Load Spice kernels
 	printf("\nLoading kernels...		");
@@ -167,6 +168,12 @@ int main(void)
 	printf("\n final_time		= %le", config_out.final_time);
 	if (config_out.start_time_save > (double)-3.155e+10)
 		printf("\n start_time_save	= %le", config_out.start_time_save);
+	if (config_out.save_as_binary){
+		printf("\n saving output in binary format.");
+	}
+	else {
+		printf("\n saving output in text format.");
+	}
 	printf("\n bodys_ID		=");
 	for (j = 0; j < config_out.N_bodys; j++)
 		printf(" %d", config_out.body_int[j]);
@@ -595,6 +602,9 @@ static int handler(void* user, const char* section, const char* name, const char
 	else if (MATCH("simulation", "NUMBER_OF_THREADS")) {
 		pconfig->nthreads = atoi(value);
 	}
+	else if (MATCH("simulation", "SAVE_AS_BINARY")) {
+		pconfig->savebin = atoi(value);
+	}
 	else if (MATCH("particles", "PARTICLE_INPUT_FILE_NAME")) {
 		pconfig->inputfn = strdup(value);
 	}
@@ -635,6 +645,7 @@ int read_configuration(configuration_values *config_out)
 	config.etarget = "10e-15";
 	config.mult = "20.";
 	config.nthreads = 1;
+	config.savebin = 0;
 	config.inputfn = "";
 	config.outputfn = "default";
 	config.pmass = 0;
@@ -669,6 +680,9 @@ int read_configuration(configuration_values *config_out)
 
 	//Set number of threads
 	config_out->number_of_threads = config.nthreads;
+
+	//Save output as binary?
+	config_out->save_as_binary = config.savebin;
 
 	//Set final date of the simulation
 	if (strcmp(config.finaltime, "") == 0)

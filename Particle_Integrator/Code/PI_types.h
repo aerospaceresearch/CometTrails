@@ -5,6 +5,7 @@ typedef struct
 	char inputfpath[260];
 	char outputpath[260];
 	int number_of_threads;
+	int save_as_binary;
 	SpiceDouble final_time;
 	SpiceDouble start_time_save;
 	int N_bodys;
@@ -29,6 +30,7 @@ typedef struct
 	const char* bodysid;
 	const char* mult;
 	int nthreads;
+	int savebin;
 	// Particles
 	const char* inputfn;
 	const char* outputfn;

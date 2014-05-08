@@ -22,7 +22,10 @@ configure_file (
 
 # EXECUTABLE
 
-add_executable(PIntegrator SourceCode.c)
+add_executable(
+	PIntegrator SourceCode.c
+	resources/pintegrator.rc
+)
 
 
 # OPTIONS
