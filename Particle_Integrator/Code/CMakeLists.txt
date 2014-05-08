@@ -2,6 +2,11 @@ cmake_minimum_required (VERSION 2.6)
 project (ParticleIntegrator)
 
 
+# SOURCE DIR
+
+set (PROJECT_SOURCE_DIR ${CMAKE_SOURCE_DIR})
+
+
 # VERSION
 
 set (ParticleIntegrator_VERSION_MAJOR 0)
@@ -17,7 +22,10 @@ configure_file (
 
 # EXECUTABLE
 
-add_executable(PIntegrator SourceCode.c)
+add_executable(
+	PIntegrator SourceCode.c
+	resources/pintegrator.rc
+)
 
 
 # OPTIONS
@@ -32,7 +40,9 @@ option (WSTEPINFO
 
 include_directories(${PROJECT_BINARY_DIR}) # PIConfig.h
 
+include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/Inih)
+include_directories(${PROJECT_SOURCE_DIR}/Integrators)
 include_directories(${PROJECT_SOURCE_DIR}/cspice/include)
 
 IF(CMAKE_COMPILER_IS_GNUCC)
@@ -116,14 +126,9 @@ SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${CUSTOM_C_FLAGS_DEBUG}")
 SET(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} ${CUSTOM_C_FLAGS_RELWITHDEBINFO}")
 
 message("> CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
-message("> CMAKE_C_FLAGS_RELEASE ${CMAKE_C_FLAGS_RELEASE}")
-message("> CMAKE_C_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG}")
-message("> CMAKE_C_FLAGS_RELWITHDEBINFO ${CMAKE_C_FLAGS_RELWITHDEBINFO}")
-
-
-# BUILD TYPE
-
-set(CMAKE_BUILD_TYPE "Release")
+message("> CMAKE_C_FLAGS_RELEASE: ${CMAKE_C_FLAGS_RELEASE}")
+message("> CMAKE_C_FLAGS_DEBUG: ${CMAKE_C_FLAGS_DEBUG}")
+message("> CMAKE_C_FLAGS_RELWITHDEBINFO: ${CMAKE_C_FLAGS_RELWITHDEBINFO}")
 
 
 # DEBUG
