@@ -1,3 +1,4 @@
+// Functions called by integration algorithms
 
 void calc_accel(int N_bodys, SpiceDouble GM[], SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel)
 {

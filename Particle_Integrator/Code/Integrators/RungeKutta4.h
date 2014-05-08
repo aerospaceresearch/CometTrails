@@ -1,6 +1,4 @@
-#include <IntegEnv.h>
-
-int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final_time, SpiceDouble start_time_save, SpiceDouble dv_step, SpiceDouble *nstate, FILE *statefile, int n, int particles_count)
+int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final_time, SpiceDouble start_time_save, SpiceDouble dv_step, SpiceDouble *nstate, FILE *statefile, int n)
 {
 	//Create some variables
 	int j, i = 0;
