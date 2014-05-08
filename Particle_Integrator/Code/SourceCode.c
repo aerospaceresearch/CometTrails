@@ -309,7 +309,6 @@ int main(void)
 
 			//Write the particle number to the already-done file and update progress.txt
 			FILE* done;
-			FILE* progress;
 			double fraction;
 #pragma omp critical(ALREADYDONE)
 			{
@@ -362,7 +361,7 @@ int main(void)
 			if (err != 0)
 			{
 				error_code += err;
-				printf("\n particle #%d	was not succesfully completed", p);
+				printf("\n particle #%d	was not successfully completed", p);
 			}
 			else
 			{

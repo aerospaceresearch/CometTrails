@@ -2,6 +2,11 @@ cmake_minimum_required (VERSION 2.6)
 project (ParticleIntegrator)
 
 
+# SOURCE DIR
+
+set (PROJECT_SOURCE_DIR ${CMAKE_SOURCE_DIR})
+
+
 # VERSION
 
 set (ParticleIntegrator_VERSION_MAJOR 0)
