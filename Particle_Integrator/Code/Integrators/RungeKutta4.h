@@ -1,3 +1,5 @@
+/* 4th order Runge-Kutta method */
+
 int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final_time, SpiceDouble start_time_save, SpiceDouble dv_step, SpiceDouble *nstate, FILE *statefile, int n)
 {
 	//Create some variables
@@ -84,7 +86,7 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 			dtmax = dt;
 		}
 		numsteps++;
-#endif
+#endif // __WTIMESTEP
 
 		/*if ((*nstate)[i][6] - dt < final_time)
 		{

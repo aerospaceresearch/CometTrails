@@ -20,6 +20,7 @@
 	#include <time.h>
 #endif
 
+
 // Function cross-platform compatibility
 #ifdef _WIN32
 	#define SLEEP( a1 ) Sleep( a1 )
@@ -28,7 +29,8 @@
 	#define SLEEP( a1 ) usleep( a1 * 1000 )
 #endif
 
-#ifdef _WIN32 // Avoids MSVC level 3 warning C4996
+// Avoid MSVC level 3 warning C4996
+#ifdef _WIN32
 	#define strdup _strdup
 	#define strcpy strcpy_s
 	#define sscanf sscanf_s
@@ -51,6 +53,7 @@
 #include <IntegEnv.h>
 #include <RungeKutta4.h>
 #include <RungeKutta67.h>
+
 bool particle_already_processed(int p, char already_done_path[]);
 bool particle_incomplete(char outputpath[], SpiceDouble *nstate);
 int read_configuration(configuration_values *config_out);
@@ -187,7 +190,7 @@ int main(void)
 	if (config_out.first_particle_number != 1)
 		printf("\n first_particle_number	= %d", config_out.first_particle_number);
 	printf("\n save_nth		= %d", config_out.n);
-	
+
 	//Check for progress.txt
 	FILE *progress, *already_done;
 	fopen_s(&progress, "progress.txt", "r+");
@@ -253,7 +256,7 @@ int main(void)
 #ifdef __WTIMING
 	clock_t start = clock(); // Start clock
 #endif
-	
+
 	//Start (parallel) computing
 	printf("\n\n Numerical approximation started...");
 
@@ -261,7 +264,7 @@ int main(void)
 #pragma omp parallel private(j, e) num_threads(config_out.number_of_threads)
 	{
 		int th_id = omp_get_thread_num();
-		
+
 		//Allocate nstate
 		SpiceDouble nstate[7];
 
@@ -270,7 +273,7 @@ int main(void)
 		for (p = config_out.first_particle_number; p <= last_particle_number; p++)
 		{
 			int err = 0;
-			
+
 			//Check if particle has already been processed completely
 			if (particle_already_processed(p, already_done_path))
 			{
@@ -335,15 +338,15 @@ int main(void)
 			{
 				switch (config_out.algorithm)
 				{
-					case 1:
-						err = RungeKutta4(config_out.N_bodys, config_out.body_int, config_out.GM, config_out.final_time, config_out.start_time_save, config_out.dv_step, nstate, statefile, config_out.n);
-						break;
-					case 2:
-						err = RungeKutta67(config_out.N_bodys, config_out.body_int, config_out.GM, config_out.final_time, config_out.start_time_save, config_out.e_target, nstate, statefile, config_out.n);
-						break;
-					default:
-						err = 1;
-						printf("\nerror: unknown integration algorithm: %d", config_out.algorithm);
+				case 1:
+					err = RungeKutta4(config_out.N_bodys, config_out.body_int, config_out.GM, config_out.final_time, config_out.start_time_save, config_out.dv_step, nstate, statefile, config_out.n);
+					break;
+				case 2:
+					err = RungeKutta67(config_out.N_bodys, config_out.body_int, config_out.GM, config_out.final_time, config_out.start_time_save, config_out.e_target, nstate, statefile, config_out.n);
+					break;
+				default:
+					err = 1;
+					printf("\nerror: unknown integration algorithm: %d", config_out.algorithm);
 				}
 
 				fclose(statefile);
@@ -393,7 +396,7 @@ int main(void)
 					}
 					else
 					{
-						fraction = (float) particles_done / particles_count;
+						fraction = (float)particles_done / particles_count;
 						fprintf(progress, "%f", fraction);
 						fclose(progress);
 						break;
@@ -422,16 +425,16 @@ int main(void)
 			double elapsed_time = (end - start) / (double)CLOCKS_PER_SEC;
 			printf("\n\n Elapsed time: %1.3f s", elapsed_time);
 		}
-#endif
+#endif // __WTIMING
 	}
 
-	
+
 	//Deallocate arrays
 	for (j = 0; j < particles_count; j++)
 		free(particles_start[j]);
 	free(particles_start);
-	
-	
+
+
 	if (error_code == 0)
 	{
 		printf("\n\nAll particles are done. Everything is OK!\n");
@@ -575,6 +578,7 @@ static int handler(void* user, const char* section, const char* name, const char
 	configuration_readout* pconfig = (configuration_readout*)user;
 
 #define MATCH(s, n) strcmp(section, s) == 0 && strcmp(name, n) == 0
+
 	if (MATCH("simulation", "ALGORITHM")) {
 		pconfig->algo = strdup(value);
 	}
@@ -629,12 +633,12 @@ static int handler(void* user, const char* section, const char* name, const char
 int read_configuration(configuration_values *config_out)
 {
 	char temp[260], *token, *next_token = NULL, inputpath[260] = ("INPUT" OS_SEP), configpath[260] = "";
-    SpiceInt dim, j;
+	SpiceInt dim, j;
 	configuration_readout config;
 	SpiceDouble mult = 0.0;
 
 	sprintf_s(configpath, 260, "%s%s", inputpath, "configuration.ini");
-	
+
 	// Set default values
 	config.algo = "RK4";
 	config.finaltime = "";
@@ -668,7 +672,7 @@ int read_configuration(configuration_values *config_out)
 	if (strcmp(config.algo, "RK4") == 0)
 	{
 		config_out->algorithm = 1;
-	} 
+	}
 	else if (strcmp(config.algo, "RK67") == 0)
 	{
 		config_out->algorithm = 2;
@@ -695,7 +699,7 @@ int read_configuration(configuration_values *config_out)
 
 	//Set start date for saving
 	str2et_c(config.starttimes, &config_out->start_time_save);
-	
+
 	//Set bodys
 	if (config.nbodys == 0)
 	{
@@ -704,7 +708,7 @@ int read_configuration(configuration_values *config_out)
 		return 1;
 	}
 	config_out->N_bodys = config.nbodys;
-	
+
 	strcpy(temp, sizeof(temp), config.bodysid);
 	token = strtok_r(temp, " ", &next_token);
 	for (j = 0; j < config_out->N_bodys; j++)
@@ -725,7 +729,7 @@ int read_configuration(configuration_values *config_out)
 
 	//Set target error per step
 	sscanf(config.etarget, "%lf", &config_out->e_target);
-	
+
 	//Set which nth state is saved to disc
 	sscanf(config.mult, "%lf", &mult);
 	if (mult < 0.0000000000001)
@@ -740,7 +744,7 @@ int read_configuration(configuration_values *config_out)
 
 	//Set which particle to start and end with (particle number, from 1 to the number of particles in the input file)
 	config_out->first_particle_number = config.fpnum;
-	
+
 	//Set name of the input/output file
 	strcpy(temp, sizeof(temp), config.inputfn);
 	if (strcmp(temp, "") == 0)

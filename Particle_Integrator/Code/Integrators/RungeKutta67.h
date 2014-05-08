@@ -1,5 +1,7 @@
-/* 7th and 6th order Runge-Kutta method as described in: 
-J.R. Dormand & P.J. Prince (1978): New Runge-Kutta algorithms for numerical simulation in dynamical astronomy. Celestial Mechanics, Vol. 18, p. 223-232. */
+/* 7th and 6th order Runge-Kutta method as described in:
+   J.R. Dormand & P.J. Prince (1978): New Runge-Kutta algorithms for numerical simulation in dynamical astronomy. Celestial Mechanics, Vol. 18, p. 223-232. 
+   
+   Steps exceeding the maximum allowed error (e_target) will be repeated. */
 
 int RungeKutta67(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final_time, SpiceDouble start_time_save, SpiceDouble e_target, SpiceDouble *nstate, FILE *statefile, int n)
 {
@@ -82,16 +84,16 @@ int RungeKutta67(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble fina
 		initVel[2] = nstate[5];
 
 		time[1] = nstate[6];
-		
+
 		for (j = 0; j < N_bodys; j++)
 		{
 			// Save previous body state
-			body[0][j][0] = body[1][j][0]; 
+			body[0][j][0] = body[1][j][0];
 			body[0][j][1] = body[1][j][1];
 			body[0][j][2] = body[1][j][2];
 
 			// Set new initial body state
-			body[1][j][0] = body[8][j][0]; 
+			body[1][j][0] = body[8][j][0];
 			body[1][j][1] = body[8][j][1];
 			body[1][j][2] = body[8][j][2];
 		}
@@ -150,7 +152,7 @@ int RungeKutta67(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble fina
 						bod_c[j][k] = (((body[8][j][k] - bod_a[j][k]) / dtime[8]) - ((body[1][j][k] - bod_a[j][k]) / dtime[1])) / h;
 
 						bod_b[j][k] = (body[1][j][k] - bod_a[j][k]) / dtime[1] - bod_c[j][k] * dtime[1];
-					
+
 						// interpolate body states
 						for (m = 2; m < 8; m++)
 						{
@@ -160,7 +162,7 @@ int RungeKutta67(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble fina
 				}
 				else // first step, no previous position available for interpolation -> get all body positions with SPICE
 				{
-	#pragma omp critical(SPICE)
+#pragma omp critical(SPICE)
 					{
 						//printf("\nbefore: h = %.8le, time[1] = %.8le, tEpsMax = %.8le, tEps = %.8le ",h,time[1],tEpsMax,tEps);
 						// Critical section is only executed on one thread at a time (spice is not threadsafe)
@@ -202,33 +204,36 @@ int RungeKutta67(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble fina
 			calc_accel(N_bodys, GM, dir_SSB, &body[5], f[4]);
 
 			// F6
-			dir_SSB[0] = -(initPos[0] + (7. - sqrt(21)) * h / 14 * initVel[0] + hp2 * ((1003. - 205. * sqrt(21)) / 12348 * f[0][0] - 25. * (751. - 173. * sqrt(21)) / 90552 * f[1][0] +
-					25. * (624. - 137. * sqrt(21)) / 43218 * f[2][0] - 128. * (361. - 79. * sqrt(21)) / 237699 * f[3][0] + (3411. - 745. * sqrt(21)) / 24696 * f[4][0]));
-			dir_SSB[1] = -(initPos[1] + (7. - sqrt(21)) * h / 14 * initVel[1] + hp2 * ((1003. - 205. * sqrt(21)) / 12348 * f[0][1] - 25. * (751. - 173. * sqrt(21)) / 90552 * f[1][1] +
-					25. * (624. - 137. * sqrt(21)) / 43218 * f[2][1] - 128. * (361. - 79. * sqrt(21)) / 237699 * f[3][1] + (3411. - 745. * sqrt(21)) / 24696 * f[4][1]));
-			dir_SSB[2] = -(initPos[2] + (7. - sqrt(21)) * h / 14 * initVel[2] + hp2 * ((1003. - 205. * sqrt(21)) / 12348 * f[0][2] - 25. * (751. - 173. * sqrt(21)) / 90552 * f[1][2] +
-					25. * (624. - 137. * sqrt(21)) / 43218 * f[2][2] - 128. * (361. - 79. * sqrt(21)) / 237699 * f[3][2] + (3411. - 745. * sqrt(21)) / 24696 * f[4][2]));
+			dir_SSB[0] = -(initPos[0] + (7. - sqrt(21)) * h / 14 * initVel[0] + hp2 * ((1003. - 205. * sqrt(21)) / 12348 * f[0][0] - 25. * (751. - 173. * sqrt(21)) / 90552 * f[1][0]
+					+ 25. * (624. - 137. * sqrt(21)) / 43218 * f[2][0] - 128. * (361. - 79. * sqrt(21)) / 237699 * f[3][0] + (3411. - 745. * sqrt(21)) / 24696 * f[4][0]));
+			dir_SSB[1] = -(initPos[1] + (7. - sqrt(21)) * h / 14 * initVel[1] + hp2 * ((1003. - 205. * sqrt(21)) / 12348 * f[0][1] - 25. * (751. - 173. * sqrt(21)) / 90552 * f[1][1]
+					+ 25. * (624. - 137. * sqrt(21)) / 43218 * f[2][1] - 128. * (361. - 79. * sqrt(21)) / 237699 * f[3][1] + (3411. - 745. * sqrt(21)) / 24696 * f[4][1]));
+			dir_SSB[2] = -(initPos[2] + (7. - sqrt(21)) * h / 14 * initVel[2] + hp2 * ((1003. - 205. * sqrt(21)) / 12348 * f[0][2] - 25. * (751. - 173. * sqrt(21)) / 90552 * f[1][2]
+					+ 25. * (624. - 137. * sqrt(21)) / 43218 * f[2][2] - 128. * (361. - 79. * sqrt(21)) / 237699 * f[3][2] + (3411. - 745. * sqrt(21)) / 24696 * f[4][2]));
 			calc_accel(N_bodys, GM, dir_SSB, &body[6], f[5]);
 
 			// F7
-			dir_SSB[0] = -(initPos[0] + (7. + sqrt(21)) * h / 14 * initVel[0] + hp2 * ((793. + 187. * sqrt(21)) / 12348 * f[0][0] - 25. * (331. + 113. * sqrt(21)) / 90552 * f[1][0] +
-					25. * (1044. + 247. * sqrt(21)) / 43218 * f[2][0] - 128. * (14885. + 3779. * sqrt(21)) / 9745659 * f[3][0] + (3327. + 797. * sqrt(21)) / 24696 * f[4][0] + (581. + 127. * sqrt(21)) / 1722 * f[5][0]));
-			dir_SSB[1] = -(initPos[1] + (7. + sqrt(21)) * h / 14 * initVel[1] + hp2 * ((793. + 187. * sqrt(21)) / 12348 * f[0][1] - 25. * (331. + 113. * sqrt(21)) / 90552 * f[1][1] +
-					25. * (1044. + 247. * sqrt(21)) / 43218 * f[2][1] - 128. * (14885. + 3779. * sqrt(21)) / 9745659 * f[3][1] + (3327. + 797. * sqrt(21)) / 24696 * f[4][1] + (581. + 127. * sqrt(21)) / 1722 * f[5][1]));
-			dir_SSB[2] = -(initPos[2] + (7. + sqrt(21)) * h / 14 * initVel[2] + hp2 * ((793. + 187. * sqrt(21)) / 12348 * f[0][2] - 25. * (331. + 113. * sqrt(21)) / 90552 * f[1][2] +
-					25. * (1044. + 247. * sqrt(21)) / 43218 * f[2][2] - 128. * (14885. + 3779. * sqrt(21)) / 9745659 * f[3][2] + (3327. + 797. * sqrt(21)) / 24696 * f[4][2] + (581. + 127. * sqrt(21)) / 1722 * f[5][2]));
+			dir_SSB[0] = -(initPos[0] + (7. + sqrt(21)) * h / 14 * initVel[0] + hp2 * ((793. + 187. * sqrt(21)) / 12348 * f[0][0] - 25. * (331. + 113. * sqrt(21)) / 90552 * f[1][0]
+					+ 25. * (1044. + 247. * sqrt(21)) / 43218 * f[2][0] - 128. * (14885. + 3779. * sqrt(21)) / 9745659 * f[3][0] + (3327. + 797. * sqrt(21)) / 24696 * f[4][0]
+					+ (581. + 127. * sqrt(21)) / 1722 * f[5][0]));
+			dir_SSB[1] = -(initPos[1] + (7. + sqrt(21)) * h / 14 * initVel[1] + hp2 * ((793. + 187. * sqrt(21)) / 12348 * f[0][1] - 25. * (331. + 113. * sqrt(21)) / 90552 * f[1][1]
+					+ 25. * (1044. + 247. * sqrt(21)) / 43218 * f[2][1] - 128. * (14885. + 3779. * sqrt(21)) / 9745659 * f[3][1] + (3327. + 797. * sqrt(21)) / 24696 * f[4][1]
+					+ (581. + 127. * sqrt(21)) / 1722 * f[5][1]));
+			dir_SSB[2] = -(initPos[2] + (7. + sqrt(21)) * h / 14 * initVel[2] + hp2 * ((793. + 187. * sqrt(21)) / 12348 * f[0][2] - 25. * (331. + 113. * sqrt(21)) / 90552 * f[1][2]
+					+ 25. * (1044. + 247. * sqrt(21)) / 43218 * f[2][2] - 128. * (14885. + 3779. * sqrt(21)) / 9745659 * f[3][2] + (3327. + 797. * sqrt(21)) / 24696 * f[4][2]
+					+ (581. + 127. * sqrt(21)) / 1722 * f[5][2]));
 			calc_accel(N_bodys, GM, dir_SSB, &body[7], f[6]);
 
 			// F8
-			dir_SSB[0] = -(initPos[0] + h * initVel[0] + hp2 * ((-1.) * (157. - 3. * sqrt(21)) / 378 * f[0][0] + 25. * (143. - 10. * sqrt(21)) / 2772 * f[1][0] -
-					25. * (876. + 55. * sqrt(21)) / 3969 * f[2][0] + 1280. * (913. + 18. * sqrt(21)) / 596673 * f[3][0] - (1353. + 26. * sqrt(21)) / 2268 * f[4][0] + 
-					7. * (1777. + 377. * sqrt(21)) / 4428 * f[5][0] + 7. * (5. - sqrt(21)) / 36 * f[6][0]));
-			dir_SSB[1] = -(initPos[1] + h * initVel[1] + hp2 * ((-1.) * (157. - 3. * sqrt(21)) / 378 * f[0][1] + 25. * (143. - 10. * sqrt(21)) / 2772 * f[1][1] -
-					25. * (876. + 55. * sqrt(21)) / 3969 * f[2][1] + 1280. * (913. + 18. * sqrt(21)) / 596673 * f[3][1] - (1353. + 26. * sqrt(21)) / 2268 * f[4][1] +
-					7. * (1777. + 377. * sqrt(21)) / 4428 * f[5][1] + 7. * (5. - sqrt(21)) / 36 * f[6][1]));
-			dir_SSB[2] = -(initPos[2] + h * initVel[2] + hp2 * ((-1.) * (157. - 3. * sqrt(21)) / 378 * f[0][2] + 25. * (143. - 10. * sqrt(21)) / 2772 * f[1][2] -
-					25. * (876. + 55. * sqrt(21)) / 3969 * f[2][2] + 1280. * (913. + 18. * sqrt(21)) / 596673 * f[3][2] - (1353. + 26. * sqrt(21)) / 2268 * f[4][2] +
-					7. * (1777. + 377. * sqrt(21)) / 4428 * f[5][2] + 7. * (5. - sqrt(21)) / 36 * f[6][2]));
+			dir_SSB[0] = -(initPos[0] + h * initVel[0] + hp2 * ((-1.) * (157. - 3. * sqrt(21)) / 378 * f[0][0] + 25. * (143. - 10. * sqrt(21)) / 2772 * f[1][0]
+					- 25. * (876. + 55. * sqrt(21)) / 3969 * f[2][0] + 1280. * (913. + 18. * sqrt(21)) / 596673 * f[3][0] - (1353. + 26. * sqrt(21)) / 2268 * f[4][0]
+					+ 7. * (1777. + 377. * sqrt(21)) / 4428 * f[5][0] + 7. * (5. - sqrt(21)) / 36 * f[6][0]));
+			dir_SSB[1] = -(initPos[1] + h * initVel[1] + hp2 * ((-1.) * (157. - 3. * sqrt(21)) / 378 * f[0][1] + 25. * (143. - 10. * sqrt(21)) / 2772 * f[1][1]
+					- 25. * (876. + 55. * sqrt(21)) / 3969 * f[2][1] + 1280. * (913. + 18. * sqrt(21)) / 596673 * f[3][1] - (1353. + 26. * sqrt(21)) / 2268 * f[4][1]
+					+ 7. * (1777. + 377. * sqrt(21)) / 4428 * f[5][1] + 7. * (5. - sqrt(21)) / 36 * f[6][1]));
+			dir_SSB[2] = -(initPos[2] + h * initVel[2] + hp2 * ((-1.) * (157. - 3. * sqrt(21)) / 378 * f[0][2] + 25. * (143. - 10. * sqrt(21)) / 2772 * f[1][2]
+					- 25. * (876. + 55. * sqrt(21)) / 3969 * f[2][2] + 1280. * (913. + 18. * sqrt(21)) / 596673 * f[3][2] - (1353. + 26. * sqrt(21)) / 2268 * f[4][2]
+					+ 7. * (1777. + 377. * sqrt(21)) / 4428 * f[5][2] + 7. * (5. - sqrt(21)) / 36 * f[6][2]));
 			calc_accel(N_bodys, GM, dir_SSB, &body[8], f[7]);
 			//printf("\nf8 - dir_SSB[0]: %.16le", dir_SSB[0]);
 
@@ -319,7 +324,7 @@ int RungeKutta67(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble fina
 		}
 		free(body[k]);
 	}
-	
+
 #ifdef __WTIMESTEP
 	if (zeroEps)
 	{
