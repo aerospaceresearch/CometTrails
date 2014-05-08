@@ -269,10 +269,10 @@ int RungeKutta67(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble fina
 		nstate[4] = initVel[1] + h * (18. * (f[0][1] + f[7][1]) + 128. * f[4][1] + 98. * f[5][1] + 98. * f[6][1]) / 360;
 		nstate[5] = initVel[2] + h * (18. * (f[0][2] + f[7][2]) + 128. * f[4][2] + 98. * f[5][2] + 98. * f[6][2]) / 360;
 
-		// x6th_i+1, not necessary to compute
-		// nstate[3] = initVel[0] + h * (18 * f[0][0] + 64 * f[4][0] + (7 * (7 + sqrt(21))) * f[5][0] + (7 * (7 - sqrt(21))) * f[6][0] - 18 * f[7][0] + 18 * f[8][0]) / 360;
-		// nstate[4] = initVel[1] + h * (18 * f[0][1] + 64 * f[4][1] + (7 * (7 + sqrt(21))) * f[5][1] + (7 * (7 - sqrt(21))) * f[6][1] - 18 * f[7][1] + 18 * f[8][1]) / 360;
-		// nstate[5] = initVel[2] + h * (18 * f[0][2] + 64 * f[4][2] + (7 * (7 + sqrt(21))) * f[5][2] + (7 * (7 - sqrt(21))) * f[6][2] - 18 * f[7][2] + 18 * f[8][2]) / 360;
+		/* x6th_i+1, not necessary to compute
+		nstate[3] = initVel[0] + h * (18 * f[0][0] + 64 * f[4][0] + (7 * (7 + sqrt(21))) * f[5][0] + (7 * (7 - sqrt(21))) * f[6][0] - 18 * f[7][0] + 18 * f[8][0]) / 360;
+		nstate[4] = initVel[1] + h * (18 * f[0][1] + 64 * f[4][1] + (7 * (7 + sqrt(21))) * f[5][1] + (7 * (7 - sqrt(21))) * f[6][1] - 18 * f[7][1] + 18 * f[8][1]) / 360;
+		nstate[5] = initVel[2] + h * (18 * f[0][2] + 64 * f[4][2] + (7 * (7 + sqrt(21))) * f[5][2] + (7 * (7 - sqrt(21))) * f[6][2] - 18 * f[7][2] + 18 * f[8][2]) / 360; */
 
 		// Update time
 		nstate[6] = time[1] + h;

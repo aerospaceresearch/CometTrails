@@ -47,13 +47,13 @@
 // END Function cross-platform compatibility
 
 
+#include <PI_types.h>
 #include <IntegEnv.h>
 #include <RungeKutta4.h>
 #include <RungeKutta67.h>
 bool particle_already_processed(int p, char already_done_path[]);
 bool particle_incomplete(char outputpath[], SpiceDouble *nstate);
-int read_configuration(int *algorithm, char *inputfpath, char *outputpath, int *number_of_threads, SpiceDouble *final_time, SpiceDouble *start_time_final, int *N_bodys, int *body_int, SpiceDouble *GM, SpiceDouble *dv_step, SpiceDouble *e_target, 
-		int *n, int *first_particle_number, SpiceDouble *particle_mass, SpiceDouble *particle_density);
+int read_configuration(configuration_values *config_out);
 
 
 //Main Program
@@ -63,11 +63,24 @@ int main(void)
 	printf("ParticleIntegrator version " PI_VERSION_MAJOR "." PI_VERSION_MINOR "\n");
 
 	//Create some variables
-	int j, e, p, g, c, error_code = 0, particles_count = 0, particles_done = 0, number_of_threads = 0, first_particle_number = 0, n, N_bodys, body_int[10], nCommentLines = 0, algorithm = 0;
-	SpiceDouble final_time = 0, start_time_save = 0, dv_step = 0, particle_mass = 0, particle_density = 0, GM[10], e_target = 0;
-	char temp[260], *next_token = NULL, inputfpath[260] = "", outputpath[260] = ("OUTPUT" OS_SEP), already_done_path[260] = "INPUT" OS_SEP "processed_particles.txt";
+	int j, e, p, g, c, error_code = 0, particles_count = 0, particles_done = 0, nCommentLines = 0;
+	char temp[260], *next_token = NULL, already_done_path[260] = "INPUT" OS_SEP "processed_particles.txt";
 	bool commentLine = false;
+	configuration_values config_out;
 
+	// Initialize
+	config_out.algorithm = 0;
+	sprintf_s(config_out.inputfpath, 260, "");
+	sprintf_s(config_out.outputpath, 260, "OUTPUT" OS_SEP);
+	config_out.number_of_threads = 0;
+	config_out.final_time = 0;
+	config_out.start_time_save = 0;
+	config_out.dv_step = 0;
+	config_out.e_target = 0;
+	config_out.first_particle_number = 0;
+	config_out.particle_mass = 0;
+	config_out.particle_density = 0;
+	
 	//Load Spice kernels
 	printf("\nLoading kernels...		");
 	furnsh_c("kernels_generic.txt");
@@ -75,7 +88,7 @@ int main(void)
 
 	//READ CONFIG FILE
 	printf("\nLoading configuration...	");
-	if (read_configuration(&algorithm, inputfpath, outputpath, &number_of_threads, &final_time, &start_time_save, &N_bodys, body_int, GM, &dv_step, &e_target, &n, &first_particle_number, &particle_mass, &particle_density) != 0)
+	if (read_configuration(&config_out) != 0)
 	{
 		printf("\n\nerror:	could not read configuration.\n");
 		//SLEEP(4000);
@@ -87,7 +100,7 @@ int main(void)
 	printf("\nLoading particles...		");
 	FILE *particles_start_file;
 	SpiceDouble **particles_start;
-	fopen_s(&particles_start_file, inputfpath, "r");
+	fopen_s(&particles_start_file, config_out.inputfpath, "r");
 	if (particles_start_file == NULL)
 	{
 		printf("\n\nerror:	could not load particles.\n");
@@ -120,7 +133,7 @@ int main(void)
 		particles_start[j] = malloc(8 * sizeof(SpiceDouble));
 	}
 	fclose(particles_start_file);
-	fopen_s(&particles_start_file, inputfpath, "r");
+	fopen_s(&particles_start_file, config_out.inputfpath, "r");
 	j = -nCommentLines;
 	while (fgets(temp, sizeof(temp), particles_start_file) != NULL)
 	{
@@ -138,35 +151,35 @@ int main(void)
 		}
 		j++;
 	}
-	int last_particle_number = first_particle_number + particles_count - 1;
+	int last_particle_number = config_out.first_particle_number + particles_count - 1;
 	fclose(particles_start_file);
 	printf("...done. %d particles loaded.\n", particles_count);
 
 	//Print config
-	if (algorithm == 1)
+	if (config_out.algorithm == 1)
 		printf("\n algorithm		= RK4");
-	else if (algorithm == 2)
+	else if (config_out.algorithm == 2)
 		printf("\n algorithm		= RK67");
 	else
 		printf("\n algorithm unknown.");
-	if (number_of_threads > 1)
-		printf("\n number of threads	= %d", number_of_threads);
-	printf("\n final_time		= %le", final_time);
-	if (start_time_save > (double) -3.155e+10)
-		printf("\n start_time_save	= %le", start_time_save);
+	if (config_out.number_of_threads > 1)
+		printf("\n number of threads	= %d", config_out.number_of_threads);
+	printf("\n final_time		= %le", config_out.final_time);
+	if (config_out.start_time_save > (double)-3.155e+10)
+		printf("\n start_time_save	= %le", config_out.start_time_save);
 	printf("\n bodys_ID		=");
-	for (j = 0; j < N_bodys; j++)
-		printf(" %d", body_int[j]);
-	if (algorithm == 1)
-		printf("\n dv_step		= %le", dv_step);
-	else if (algorithm == 2)
-		printf("\n e_target		= %le", e_target);
-	if (particle_mass > 0)
-		printf("\n particle_mass		= %le", particle_mass);
-	printf("\n particle_density	= %le", particle_density);
-	if (first_particle_number != 1)
-		printf("\n first_particle_number	= %d", first_particle_number);
-	printf("\n save_nth		= %d", n);
+	for (j = 0; j < config_out.N_bodys; j++)
+		printf(" %d", config_out.body_int[j]);
+	if (config_out.algorithm == 1)
+		printf("\n dv_step		= %le", config_out.dv_step);
+	else if (config_out.algorithm == 2)
+		printf("\n e_target		= %le", config_out.e_target);
+	if (config_out.particle_mass > 0)
+		printf("\n particle_mass		= %le", config_out.particle_mass);
+	printf("\n particle_density	= %le", config_out.particle_density);
+	if (config_out.first_particle_number != 1)
+		printf("\n first_particle_number	= %d", config_out.first_particle_number);
+	printf("\n save_nth		= %d", config_out.n);
 	
 	//Check for progress.txt
 	FILE *progress, *already_done;
@@ -238,7 +251,7 @@ int main(void)
 	printf("\n\n Numerical approximation started...");
 
 	/*--------------------------------------------------------------------------------------------------------------------------*/
-#pragma omp parallel private(j, e) num_threads(number_of_threads)
+#pragma omp parallel private(j, e) num_threads(config_out.number_of_threads)
 	{
 		int th_id = omp_get_thread_num();
 		
@@ -247,7 +260,7 @@ int main(void)
 
 		//Loop over particles
 #pragma omp for
-		for (p = first_particle_number; p <= last_particle_number; p++)
+		for (p = config_out.first_particle_number; p <= last_particle_number; p++)
 		{
 			int err = 0;
 			
@@ -260,10 +273,10 @@ int main(void)
 
 			//Set path where to save the particle
 			char particle_path[260] = "";
-			sprintf_s(particle_path, 260, "%s_#%d%s", outputpath, p, ".txt");
+			sprintf_s(particle_path, 260, "%s_#%d%s", config_out.outputpath, p, ".txt");
 
 			//Set particle start_time
-			SpiceDouble start_time = particles_start[p - first_particle_number][7];
+			SpiceDouble start_time = particles_start[p - config_out.first_particle_number][7];
 
 			//Check if particle has been processed but is incomplete
 			if (particle_incomplete(particle_path, nstate))
@@ -274,7 +287,7 @@ int main(void)
 			{
 				//Set initial nstate
 				for (j = 0; j < 6; j++)
-					nstate[j] = particles_start[p - first_particle_number][j];
+					nstate[j] = particles_start[p - config_out.first_particle_number][j];
 				nstate[6] = start_time;
 				//Create  initial file
 				FILE* init;
@@ -313,17 +326,17 @@ int main(void)
 			//Integrate particle
 			if (err == 0)
 			{
-				switch (algorithm)
+				switch (config_out.algorithm)
 				{
 					case 1:
-						err = RungeKutta4(N_bodys, body_int, GM, final_time, start_time_save, dv_step, nstate, statefile, n);
+						err = RungeKutta4(config_out.N_bodys, config_out.body_int, config_out.GM, config_out.final_time, config_out.start_time_save, config_out.dv_step, nstate, statefile, config_out.n);
 						break;
 					case 2:
-						err = RungeKutta67(N_bodys, body_int, GM, final_time, start_time_save, e_target, nstate, statefile, n);
+						err = RungeKutta67(config_out.N_bodys, config_out.body_int, config_out.GM, config_out.final_time, config_out.start_time_save, config_out.e_target, nstate, statefile, config_out.n);
 						break;
 					default:
 						err = 1;
-						printf("\nerror: unknown integration algorithm: %d", algorithm);
+						printf("\nerror: unknown integration algorithm: %d", config_out.algorithm);
 				}
 
 				fclose(statefile);
@@ -550,30 +563,9 @@ bool particle_incomplete(char particle_path[], SpiceDouble *nstate)
 
 
 
-/* define the struct type for the config file readout */
-typedef struct
-{
-	// Simulation
-	const char* algo;
-	const char* finaltime;
-	const char* starttimes;
-	int nbodys;
-	const char* bodysid;
-	const char* dvstep;
-	const char* etarget;
-	int mult;
-	int nthreads;
-	// Particles
-	const char* inputfn;
-	const char* outputfn;
-	const char* pmass;
-	int pdensity;
-	int fpnum;
-} configuration;
-
 static int handler(void* user, const char* section, const char* name, const char* value)
 {
-	configuration* pconfig = (configuration*)user;
+	configuration_readout* pconfig = (configuration_readout*)user;
 
 #define MATCH(s, n) strcmp(section, s) == 0 && strcmp(name, n) == 0
 	if (MATCH("simulation", "ALGORITHM")) {
@@ -598,7 +590,7 @@ static int handler(void* user, const char* section, const char* name, const char
 		pconfig->etarget = strdup(value);
 	}
 	else if (MATCH("simulation", "SAVE_NTH_MULTIPLIER")) {
-		pconfig->mult = atoi(value);
+		pconfig->mult = strdup(value);
 	}
 	else if (MATCH("simulation", "NUMBER_OF_THREADS")) {
 		pconfig->nthreads = atoi(value);
@@ -624,11 +616,12 @@ static int handler(void* user, const char* section, const char* name, const char
 	return 1;
 }
 
-int read_configuration(int *algorithm, char *inputfpath, char *outputpath, int *number_of_threads, SpiceDouble *final_time, SpiceDouble *start_time_save, int *N_bodys, int *body_int, SpiceDouble *GM, SpiceDouble *dv_step, SpiceDouble *e_target, int *n, int *first_particle_number, SpiceDouble *particle_mass, SpiceDouble *particle_density)
+int read_configuration(configuration_values *config_out)
 {
 	char temp[260], *token, *next_token = NULL, inputpath[260] = ("INPUT" OS_SEP), configpath[260] = "";
     SpiceInt dim, j;
-	configuration config;
+	configuration_readout config;
+	SpiceDouble mult = 0.0;
 
 	sprintf_s(configpath, 260, "%s%s", inputpath, "configuration.ini");
 	
@@ -639,8 +632,8 @@ int read_configuration(int *algorithm, char *inputfpath, char *outputpath, int *
 	config.nbodys = 0;
 	config.bodysid = "";
 	config.dvstep = "10e-3";
-	config.etarget = "10e-14";
-	config.mult = 20;
+	config.etarget = "10e-15";
+	config.mult = "20.";
 	config.nthreads = 1;
 	config.inputfn = "";
 	config.outputfn = "default";
@@ -663,19 +656,19 @@ int read_configuration(int *algorithm, char *inputfpath, char *outputpath, int *
 	}
 	if (strcmp(config.algo, "RK4") == 0)
 	{
-		*algorithm = 1;
+		config_out->algorithm = 1;
 	} 
 	else if (strcmp(config.algo, "RK67") == 0)
 	{
-		*algorithm = 2;
+		config_out->algorithm = 2;
 	}
 	else
 	{
-		*algorithm = 0; // invalid input
+		config_out->algorithm = 0; // invalid input
 	}
 
 	//Set number of threads
-	*number_of_threads = config.nthreads;
+	config_out->number_of_threads = config.nthreads;
 
 	//Set final date of the simulation
 	if (strcmp(config.finaltime, "") == 0)
@@ -684,10 +677,10 @@ int read_configuration(int *algorithm, char *inputfpath, char *outputpath, int *
 		SLEEP(1000);
 		return 1;
 	}
-	str2et_c(config.finaltime, final_time);
+	str2et_c(config.finaltime, &config_out->final_time);
 
 	//Set start date for saving
-	str2et_c(config.starttimes, start_time_save);
+	str2et_c(config.starttimes, &config_out->start_time_save);
 	
 	//Set bodys
 	if (config.nbodys == 0)
@@ -696,11 +689,11 @@ int read_configuration(int *algorithm, char *inputfpath, char *outputpath, int *
 		SLEEP(1000);
 		return 1;
 	}
-	*N_bodys = config.nbodys;
+	config_out->N_bodys = config.nbodys;
 	
 	strcpy(temp, sizeof(temp), config.bodysid);
 	token = strtok_r(temp, " ", &next_token);
-	for (j = 0; j < *N_bodys; j++)
+	for (j = 0; j < config_out->N_bodys; j++)
 	{
 		if (token == NULL)
 		{
@@ -708,30 +701,31 @@ int read_configuration(int *algorithm, char *inputfpath, char *outputpath, int *
 			SLEEP(1000);
 			return 1;
 		}
-		sscanf(token, "%d", &body_int[j]);
+		sscanf(token, "%d", &config_out->body_int[j]);
 		token = strtok_r(NULL, " ", &next_token);
-		bodvcd_c(body_int[j], "GM", *N_bodys, &dim, &GM[j]); // Get standard gravitational parameter of each body (GM)
+		bodvcd_c(config_out->body_int[j], "GM", config_out->N_bodys, &dim, &config_out->GM[j]); // Get standard gravitational parameter of each body (GM)
 	}
 
 	//Set step size control (rk4)
-	sscanf(config.dvstep, "%lf", dv_step);
+	sscanf(config.dvstep, "%lf", &config_out->dv_step);
 
 	//Set target error per step
-	sscanf(config.etarget, "%lf", e_target);
+	sscanf(config.etarget, "%lf", &config_out->e_target);
 	
 	//Set which nth state is saved to disc
-	if (config.mult == 0)
+	sscanf(config.mult, "%lf", &mult);
+	if (mult < 0.0000000000001)
 	{
 		//Save every 10nth state. This produces high density of states in the output file and is intended to be used when testing the integrator.
-		*n = 10;
+		config_out->n = 10;
 	}
 	else
 	{
-		*n = (int)(config.mult * pow(*dv_step, -1) + 0.5);
+		config_out->n = (int)(mult / config_out->dv_step + 0.5);
 	}
 
 	//Set which particle to start and end with (particle number, from 1 to the number of particles in the input file)
-	*first_particle_number = config.fpnum;
+	config_out->first_particle_number = config.fpnum;
 	
 	//Set name of the input/output file
 	strcpy(temp, sizeof(temp), config.inputfn);
@@ -741,39 +735,39 @@ int read_configuration(int *algorithm, char *inputfpath, char *outputpath, int *
 		SLEEP(1000);
 		return 1;
 	}
-	sprintf_s(inputfpath, 260, "%s%s%s", inputpath, temp, ".txt");
+	sprintf_s(config_out->inputfpath, 260, "%s%s%s", inputpath, temp, ".txt");
 	if (strcmp(config.outputfn, "default"))
 	{
 		strcpy(temp, sizeof(temp), config.outputfn);
 	}
 
-	if (mkdir(outputpath, 0777))
+	if (mkdir(config_out->outputpath, 0777))
 	{
 		printf("\n ...skip mkdir... ");
 	}
 
 	char outputfile[260] = "";
-	sprintf_s(outputfile, 260, "%s%s", outputpath, temp);
-	strcpy(outputpath, 260, outputfile);
+	sprintf_s(outputfile, 260, "%s%s", config_out->outputpath, temp);
+	strcpy(config_out->outputpath, 260, outputfile);
 	//Set mass of particles
 	//strcpy(temp, sizeof(temp), config.pmass);
-	sscanf(config.pmass, "%lf", particle_mass);
-	if (*particle_mass > 0)
+	sscanf(config.pmass, "%lf", &config_out->particle_mass);
+	if (config_out->particle_mass > 0)
 	{
 		//Set density of particles
-		*particle_density = (SpiceDouble)config.pdensity;
+		config_out->particle_density = (SpiceDouble)config.pdensity;
 
 		//Manipulate sun mass to simulate solar pressure
 		SpiceDouble Qpr, PI, particle_radius, beta;
 		Qpr = 1.0;
 		PI = 3.1416;
-		particle_radius = pow( (*particle_mass) / ((1.3333) * PI * (*particle_density)), 0.3333 );
-		beta = 5.7e-4 * (Qpr / ( (*particle_density) * particle_radius) );
-		for (j = 0; j < *N_bodys; j++)
+		particle_radius = pow((config_out->particle_mass) / ((1.3333) * PI * (config_out->particle_density)), 0.3333);
+		beta = 5.7e-4 * (Qpr / ((config_out->particle_density) * particle_radius));
+		for (j = 0; j < config_out->N_bodys; j++)
 		{
-			if (body_int[j] == 10)
+			if (config_out->body_int[j] == 10)
 			{
-				GM[j] = GM[j] * (1 - beta);
+				config_out->GM[j] = config_out->GM[j] * (1 - beta);
 				break;
 			}
 		}
