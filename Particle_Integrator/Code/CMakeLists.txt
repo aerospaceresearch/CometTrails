@@ -33,6 +33,7 @@ option (WSTEPINFO
 include_directories(${PROJECT_BINARY_DIR}) # PIConfig.h
 
 include_directories(${PROJECT_SOURCE_DIR}/Inih)
+include_directories(${PROJECT_SOURCE_DIR}/Integrators)
 include_directories(${PROJECT_SOURCE_DIR}/cspice/include)
 
 IF(CMAKE_COMPILER_IS_GNUCC)
