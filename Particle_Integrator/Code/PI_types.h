@@ -19,7 +19,7 @@ typedef struct
 	int first_particle_number;
 	SpiceDouble particle_mass;
 	SpiceDouble particle_density;
-	SpiceDouble prad;
+	SpiceDouble particle_radius;
 } configuration_values;
 
 /* struct type for the config file readout */
