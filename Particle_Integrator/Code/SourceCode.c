@@ -84,7 +84,8 @@ int main(void)
 	config_out.particle_mass = 0;
 	config_out.particle_density = 0;
 	config_out.save_as_binary = 0;
-	
+	config_out.particle_radius = 0;
+
 	//Load Spice kernels
 	printf("\nLoading kernels...		");
 	furnsh_c("kernels_generic.txt");
@@ -112,7 +113,7 @@ int main(void)
 		return 1;
 	}
 	j = 0;
-	while ((c = fgetc(particles_start_file)) != EOF) //#tmp# requires newline before eof
+	while ((c = fgetc(particles_start_file)) != EOF) // requires newline before eof
 	{
 		if (c == '%')
 		{
@@ -339,10 +340,10 @@ int main(void)
 				switch (config_out.algorithm)
 				{
 				case 1:
-					err = RungeKutta4(config_out.N_bodys, config_out.body_int, config_out.GM, config_out.final_time, config_out.start_time_save, config_out.dv_step, nstate, statefile, config_out.n);
+					err = RungeKutta4(&config_out, nstate, statefile);
 					break;
 				case 2:
-					err = RungeKutta67(config_out.N_bodys, config_out.body_int, config_out.GM, config_out.final_time, config_out.start_time_save, config_out.e_target, nstate, statefile, config_out.n);
+					err = RungeKutta67(&config_out, nstate, statefile);
 					break;
 				default:
 					err = 1;
@@ -776,11 +777,11 @@ int read_configuration(configuration_values *config_out)
 		config_out->particle_density = (SpiceDouble)config.pdensity;
 
 		//Manipulate sun mass to simulate solar pressure
-		SpiceDouble Qpr, PI, particle_radius, beta;
+		SpiceDouble Qpr, PI, beta;
 		Qpr = 1.0;
 		PI = 3.1416;
-		particle_radius = pow((config_out->particle_mass) / ((1.3333) * PI * (config_out->particle_density)), 0.3333);
-		beta = 5.7e-4 * (Qpr / ((config_out->particle_density) * particle_radius));
+		config_out->particle_radius = pow((config_out->particle_mass) / ((1.3333) * PI * (config_out->particle_density)), 0.3333);
+		beta = 5.7e-4 * (Qpr / ((config_out->particle_density) * config_out->particle_radius));
 		for (j = 0; j < config_out->N_bodys; j++)
 		{
 			if (config_out->body_int[j] == 10)

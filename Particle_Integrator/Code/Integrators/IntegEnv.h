@@ -1,8 +1,8 @@
 // Functions called by integration algorithms
 
-void calc_accel(int N_bodys, SpiceDouble GM[], SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel)
+void calc_accel(int N_bodys, SpiceDouble GM[], SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel, int body_int[], SpiceDouble Vel[], SpiceDouble prad, SpiceDouble mp)
 {
-	SpiceDouble direct_body[3], r3, GMr3, absr;
+	SpiceDouble direct_body[3], r3, GMr3, absr, c2 = 89875517873.681764, apr;
 	int b; // body
 
 	accel[0] = 0;
