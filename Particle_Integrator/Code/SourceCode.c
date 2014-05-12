@@ -349,8 +349,8 @@ int main(void)
 					err = 1;
 					printf("\nerror: unknown integration algorithm: %d", config_out.algorithm);
 				}
+				fclose(statefile);
 			}
-			fclose(statefile);
 			
 			//Write the particle number to the already-done file and update progress.txt
 			FILE* done;
