@@ -90,3 +90,23 @@ SpiceDouble calc_prdc(configuration_values *config_out)
 	return 0.0;
 #endif // __PRD
 }
+
+
+
+/* Function imitating spkezp_c but always returning the SSB as the body poisition.
+   Only used with __SSBCENTER active.
+   */
+void return_SSB(SpiceInt            targ,
+				SpiceDouble         et,
+				ConstSpiceChar    * ref,
+				ConstSpiceChar    * abcorr,
+				SpiceInt            obs,
+				SpiceDouble         ptarg[3],
+				SpiceDouble       * lt)
+{
+	int j;
+	for (j = 0; j < 3; j++)
+	{
+		ptarg[j] = (SpiceDouble)0.0;
+	}
+}

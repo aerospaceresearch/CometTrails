@@ -36,6 +36,8 @@ option (WSTEPINFO
 	"Print time step extremes and number of steps" OFF)
 option (PRD
 	"Take Poynting-Robertson drag into account" ON)
+option (SSBCENTER
+	"All bodies are located at the SSB" OFF)
 
 
 # INCLUDE
@@ -66,6 +68,10 @@ if (PRD)
 	add_definitions(-D__PRD)
 	message("PRD ACTIVE")
 endif (PRD)
+if (SSBCENTER)
+	add_definitions(-D__SSBCENTER)
+	message("SSB CENTERING ACTIVE")
+endif (SSBCENTER)
 
 
 # LIBRARIES

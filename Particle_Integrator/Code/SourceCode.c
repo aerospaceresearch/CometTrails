@@ -21,6 +21,11 @@
 #endif
 
 
+// Center all bodies to SSB: Add preprocessor definition "__SSBCENTER"
+#ifdef __SSBCENTER
+	#define spkezp_c return_SSB
+#endif
+
 //BEGIN	Function cross-platform compatibility
 #ifdef _WIN32
 	#define SLEEP( a1 ) Sleep( a1 )
@@ -182,6 +187,9 @@ int main(void)
 	printf("\n bodys_ID		=");
 	for (j = 0; j < config_out.N_bodys; j++)
 		printf(" %d", config_out.body_int[j]);
+#ifdef __SSBCENTER
+	printf("\n all bodies will be located at the SSB (build without SSBCENTER to disable).");
+#endif
 	if (config_out.algorithm == 1)
 		printf("\n dv_step		= %le", config_out.dv_step);
 	else if (config_out.algorithm == 2)
@@ -711,7 +719,7 @@ int read_configuration(configuration_values *config_out)
 	}
 
 
-	//Set bodys
+	//Set bodies
 	if (config.nbodys == 0)
 	{
 		printf("\n\nerror:	N_BODYS not set");
