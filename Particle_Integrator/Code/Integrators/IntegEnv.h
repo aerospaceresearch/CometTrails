@@ -94,7 +94,7 @@ SpiceDouble calc_prdc(configuration_values *config_out)
 
 
 /* Function imitating spkezp_c but always returning the SSB as the body poisition.
-   Only used with __SSBCENTER active.
+   Only used when SSB_CENTERED	=1
    */
 void return_SSB(SpiceInt            targ,
 				SpiceDouble         et,
@@ -102,7 +102,7 @@ void return_SSB(SpiceInt            targ,
 				ConstSpiceChar    * abcorr,
 				SpiceInt            obs,
 				SpiceDouble         ptarg[3],
-				SpiceDouble       * lt)
+				SpiceDouble       * lt) // Most parameters are unreferenced but necessary for identical function calls to spkezp_c
 {
 	int j;
 	for (j = 0; j < 3; j++)

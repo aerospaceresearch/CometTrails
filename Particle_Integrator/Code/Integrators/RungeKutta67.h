@@ -5,6 +5,17 @@
 
 int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *statefile)
 {
+	// Select body position function to use ((*bodyPosFP) for spice, return_SSB for (0,0,0))
+	void (*bodyPosFP)(SpiceInt, SpiceDouble, ConstSpiceChar *, ConstSpiceChar *, SpiceInt, SpiceDouble[3], SpiceDouble *);
+	if (config_out->ssb_centered == 1)
+	{
+		bodyPosFP = &return_SSB;
+	}
+	else
+	{
+		bodyPosFP = &spkezp_c;
+	}
+
 	// Create some variables
 	int stepcount = 0, substepcount = 0, j = 0, k = 0, m = 0, zeroEps = 0;
 	SpiceDouble lt, h = 3000.0, hp2, tEps = config_out->e_target, tEps_p = 0.0;
@@ -37,7 +48,7 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 #pragma omp critical(SPICE)
 		{
 			// Critical section is only executed on one thread at a time (spice is not threadsafe)
-			spkezp_c(config_out->body_int[j], nstate[6], "ECLIPJ2000", "NONE", 0, body[8][j], &lt);
+			(*bodyPosFP)(config_out->body_int[j], nstate[6], "ECLIPJ2000", "NONE", 0, body[8][j], &lt);
 		}
 	}
 
@@ -145,7 +156,7 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 				{
 #pragma omp critical(SPICE)
 					{
-						spkezp_c(config_out->body_int[j], time[8], "ECLIPJ2000", "NONE", 0, body[8][j], &lt);
+						(*bodyPosFP)(config_out->body_int[j], time[8], "ECLIPJ2000", "NONE", 0, body[8][j], &lt);
 					}
 
 					// solving x = a + bt + ct^2 for quadratic interpolation of body positions
@@ -172,7 +183,7 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 						// Critical section is only executed on one thread at a time (spice is not threadsafe)
 						for (m = 2; m < 8; m++)
 						{
-							spkezp_c(config_out->body_int[j], time[m], "ECLIPJ2000", "NONE", 0, body[m][j], &lt);
+							(*bodyPosFP)(config_out->body_int[j], time[m], "ECLIPJ2000", "NONE", 0, body[m][j], &lt);
 						}
 					}
 				}

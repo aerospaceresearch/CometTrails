@@ -21,10 +21,6 @@
 #endif
 
 
-// Center all bodies to SSB: Add preprocessor definition "__SSBCENTER"
-#ifdef __SSBCENTER
-	#define spkezp_c return_SSB
-#endif
 
 //BEGIN	Function cross-platform compatibility
 #ifdef _WIN32
@@ -187,9 +183,8 @@ int main(void)
 	printf("\n bodys_ID		=");
 	for (j = 0; j < config_out.N_bodys; j++)
 		printf(" %d", config_out.body_int[j]);
-#ifdef __SSBCENTER
-	printf("\n all bodies will be located at the SSB (build without SSBCENTER to disable).");
-#endif
+	if (config_out.ssb_centered == 1)
+		printf("\n ssb-centered	= %d", config_out.ssb_centered);
 	if (config_out.algorithm == 1)
 		printf("\n dv_step		= %le", config_out.dv_step);
 	else if (config_out.algorithm == 2)
@@ -593,6 +588,9 @@ static int handler(void* user, const char* section, const char* name, const char
 	if (MATCH("simulation", "ALGORITHM")) {
 		pconfig->algo = strdup(value);
 	}
+	if (MATCH("simulation", "SSB_CENTERED")) {
+		pconfig->ssbc = atoi(value);
+	}
 	if (MATCH("simulation", "FINAL_TIME")) {
 		pconfig->finaltime = strdup(value);
 	}
@@ -652,6 +650,7 @@ int read_configuration(configuration_values *config_out)
 
 	// Set default values
 	config.algo = "RK4";
+	config.ssbc = 0;
 	config.finaltime = "";
 	config.starttimes = "1 JAN 1000";
 	config.nbodys = 0;
@@ -692,6 +691,9 @@ int read_configuration(configuration_values *config_out)
 	{
 		config_out->algorithm = 0; // invalid input
 	}
+
+	//Center bodies at SSB?
+	config_out->ssb_centered = config.ssbc;
 
 	//Set number of threads
 	config_out->number_of_threads = config.nthreads;

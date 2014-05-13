@@ -2,6 +2,17 @@
 
 int RungeKutta4(configuration_values *config_out, SpiceDouble *nstate, FILE *statefile)
 {
+	// Select body position function to use ((*bodyPosFP) for spice, return_SSB for (0,0,0))
+	void(*bodyPosFP)(SpiceInt, SpiceDouble, ConstSpiceChar *, ConstSpiceChar *, SpiceInt, SpiceDouble[3], SpiceDouble *);
+	if (config_out->ssb_centered == 1)
+	{
+		bodyPosFP = &return_SSB;
+	}
+	else
+	{
+		bodyPosFP = &spkezp_c;
+	}
+
 	//Create some variables
 	int j, i = 0;
 	SpiceDouble lt, dt, dt2;
@@ -29,7 +40,7 @@ int RungeKutta4(configuration_values *config_out, SpiceDouble *nstate, FILE *sta
 #pragma omp critical(SPICE)
 		{
 			//Critical section is only executed on one thread at a time (spice is not threadsafe)
-			spkezp_c(config_out->body_int[j], nstate[6], "ECLIPJ2000", "NONE", 0, body_end[j], &lt);
+			(*bodyPosFP)(config_out->body_int[j], nstate[6], "ECLIPJ2000", "NONE", 0, body_end[j], &lt);
 		}
 	}
 
@@ -102,7 +113,7 @@ int RungeKutta4(configuration_values *config_out, SpiceDouble *nstate, FILE *sta
 #pragma omp critical(SPICE)
 			{
 				//Critical section is only executed on one thread at a time (spice is not threadsafe)
-				spkezp_c(config_out->body_int[j], initTime + dt, "ECLIPJ2000", "NONE", 0, body_end[j], &lt);
+				(*bodyPosFP)(config_out->body_int[j], initTime + dt, "ECLIPJ2000", "NONE", 0, body_end[j], &lt);
 			} // ~94% of all computing time is spent here, mostly in spkgps
 			body_mid[j][0] = (body_pre[j][0] + body_end[j][0]) / 2;
 			body_mid[j][1] = (body_pre[j][1] + body_end[j][1]) / 2;
