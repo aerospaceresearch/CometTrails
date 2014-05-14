@@ -184,7 +184,7 @@ int main(void)
 	for (j = 0; j < config_out.N_bodys; j++)
 		printf(" %d", config_out.body_int[j]);
 	if (config_out.ssb_centered == 1)
-		printf("\n ssb-centered	= %d", config_out.ssb_centered);
+		printf("\n ssb-centered		= %d", config_out.ssb_centered);
 	if (config_out.algorithm == 1)
 		printf("\n dv_step		= %le", config_out.dv_step);
 	else if (config_out.algorithm == 2)

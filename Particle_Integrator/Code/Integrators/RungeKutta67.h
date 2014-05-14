@@ -117,7 +117,7 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 		dir_SSB[0] = -(initPos[0]);
 		dir_SSB[1] = -(initPos[1]);
 		dir_SSB[2] = -(initPos[2]);
-		calc_accel(config_out, dir_SSB, &body[1], f[0], initVel, PRDconst);
+		calc_accel(config_out, dir_SSB, &body[1], f[0], initVel, PRDconst, 0.0);
 
 		// dtime: time difference compared to time[0]
 		dtime[1] = time[1] - time[0];
@@ -198,25 +198,25 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 			dir_SSB[0] = -(initPos[0] + h / 10 * initVel[0] + 1. / 200 * hp2 * f[0][0]);
 			dir_SSB[1] = -(initPos[1] + h / 10 * initVel[1] + 1. / 200 * hp2 * f[0][1]);
 			dir_SSB[2] = -(initPos[2] + h / 10 * initVel[2] + 1. / 200 * hp2 * f[0][2]);
-			calc_accel(config_out, dir_SSB, &body[2], f[1], initVel, PRDconst);
+			calc_accel(config_out, dir_SSB, &body[2], f[1], initVel, PRDconst, dtime[2] - dtime[1]);
 
 			// F3
 			dir_SSB[0] = -(initPos[0] + h / 5 * initVel[0] + hp2 / 150 * (f[0][0] + 2 * f[1][0]));
 			dir_SSB[1] = -(initPos[1] + h / 5 * initVel[1] + hp2 / 150 * (f[0][1] + 2 * f[1][1]));
 			dir_SSB[2] = -(initPos[2] + h / 5 * initVel[2] + hp2 / 150 * (f[0][2] + 2 * f[1][2]));
-			calc_accel(config_out, dir_SSB, &body[3], f[2], initVel, PRDconst);
+			calc_accel(config_out, dir_SSB, &body[3], f[2], initVel, PRDconst, dtime[3] - dtime[1]);
 
 			// F4
 			dir_SSB[0] = -(initPos[0] + 3. * h / 8 * initVel[0] + hp2 * (171. / 8192 * f[0][0] + 45. / 4096 * f[1][0] + 315. / 8192 * f[2][0]));
 			dir_SSB[1] = -(initPos[1] + 3. * h / 8 * initVel[1] + hp2 * (171. / 8192 * f[0][1] + 45. / 4096 * f[1][1] + 315. / 8192 * f[2][1]));
 			dir_SSB[2] = -(initPos[2] + 3. * h / 8 * initVel[2] + hp2 * (171. / 8192 * f[0][2] + 45. / 4096 * f[1][2] + 315. / 8192 * f[2][2]));
-			calc_accel(config_out, dir_SSB, &body[4], f[3], initVel, PRDconst);
+			calc_accel(config_out, dir_SSB, &body[4], f[3], initVel, PRDconst, dtime[4] - dtime[1]);
 
 			// F5
 			dir_SSB[0] = -(initPos[0] + h / 2 * initVel[0] + hp2 * (5. / 288 * f[0][0] + 25. / 528 * f[1][0] + 25. / 672 * f[2][0] + 16. / 693 * f[3][0]));
 			dir_SSB[1] = -(initPos[1] + h / 2 * initVel[1] + hp2 * (5. / 288 * f[0][1] + 25. / 528 * f[1][1] + 25. / 672 * f[2][1] + 16. / 693 * f[3][1]));
 			dir_SSB[2] = -(initPos[2] + h / 2 * initVel[2] + hp2 * (5. / 288 * f[0][2] + 25. / 528 * f[1][2] + 25. / 672 * f[2][2] + 16. / 693 * f[3][2]));
-			calc_accel(config_out, dir_SSB, &body[5], f[4], initVel, PRDconst);
+			calc_accel(config_out, dir_SSB, &body[5], f[4], initVel, PRDconst, dtime[5] - dtime[1]);
 
 			// F6
 			dir_SSB[0] = -(initPos[0] + (7. - sqrt(21)) * h / 14 * initVel[0] + hp2 * ((1003. - 205. * sqrt(21)) / 12348 * f[0][0] - 25. * (751. - 173. * sqrt(21)) / 90552 * f[1][0]
@@ -225,7 +225,7 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 					+ 25. * (624. - 137. * sqrt(21)) / 43218 * f[2][1] - 128. * (361. - 79. * sqrt(21)) / 237699 * f[3][1] + (3411. - 745. * sqrt(21)) / 24696 * f[4][1]));
 			dir_SSB[2] = -(initPos[2] + (7. - sqrt(21)) * h / 14 * initVel[2] + hp2 * ((1003. - 205. * sqrt(21)) / 12348 * f[0][2] - 25. * (751. - 173. * sqrt(21)) / 90552 * f[1][2]
 					+ 25. * (624. - 137. * sqrt(21)) / 43218 * f[2][2] - 128. * (361. - 79. * sqrt(21)) / 237699 * f[3][2] + (3411. - 745. * sqrt(21)) / 24696 * f[4][2]));
-			calc_accel(config_out, dir_SSB, &body[6], f[5], initVel, PRDconst);
+			calc_accel(config_out, dir_SSB, &body[6], f[5], initVel, PRDconst, dtime[6] - dtime[1]);
 
 			// F7
 			dir_SSB[0] = -(initPos[0] + (7. + sqrt(21)) * h / 14 * initVel[0] + hp2 * ((793. + 187. * sqrt(21)) / 12348 * f[0][0] - 25. * (331. + 113. * sqrt(21)) / 90552 * f[1][0]
@@ -237,7 +237,7 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 			dir_SSB[2] = -(initPos[2] + (7. + sqrt(21)) * h / 14 * initVel[2] + hp2 * ((793. + 187. * sqrt(21)) / 12348 * f[0][2] - 25. * (331. + 113. * sqrt(21)) / 90552 * f[1][2]
 					+ 25. * (1044. + 247. * sqrt(21)) / 43218 * f[2][2] - 128. * (14885. + 3779. * sqrt(21)) / 9745659 * f[3][2] + (3327. + 797. * sqrt(21)) / 24696 * f[4][2]
 					+ (581. + 127. * sqrt(21)) / 1722 * f[5][2]));
-			calc_accel(config_out, dir_SSB, &body[7], f[6], initVel, PRDconst);
+			calc_accel(config_out, dir_SSB, &body[7], f[6], initVel, PRDconst, dtime[7] - dtime[1]);
 
 			// F8
 			dir_SSB[0] = -(initPos[0] + h * initVel[0] + hp2 * ((-1.) * (157. - 3. * sqrt(21)) / 378 * f[0][0] + 25. * (143. - 10. * sqrt(21)) / 2772 * f[1][0]
@@ -249,14 +249,14 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 			dir_SSB[2] = -(initPos[2] + h * initVel[2] + hp2 * ((-1.) * (157. - 3. * sqrt(21)) / 378 * f[0][2] + 25. * (143. - 10. * sqrt(21)) / 2772 * f[1][2]
 					- 25. * (876. + 55. * sqrt(21)) / 3969 * f[2][2] + 1280. * (913. + 18. * sqrt(21)) / 596673 * f[3][2] - (1353. + 26. * sqrt(21)) / 2268 * f[4][2]
 					+ 7. * (1777. + 377. * sqrt(21)) / 4428 * f[5][2] + 7. * (5. - sqrt(21)) / 36 * f[6][2]));
-			calc_accel(config_out, dir_SSB, &body[8], f[7], initVel, PRDconst);
+			calc_accel(config_out, dir_SSB, &body[8], f[7], initVel, PRDconst, dtime[8] - dtime[1]);
 			//printf("\nf8 - dir_SSB[0]: %.16le", dir_SSB[0]);
 
 			// F9 - only used for error calculation
 			dir_SSB[0] = -(initPos[0] + h * initVel[0] + hp2 * (1. / 20 * f[0][0] + 8. / 45 * f[4][0] + 7. * (7. + sqrt(21)) / 360 * f[5][0] + 7. * (7. - sqrt(21)) / 360 * f[6][0]));
 			dir_SSB[1] = -(initPos[1] + h * initVel[1] + hp2 * (1. / 20 * f[0][1] + 8. / 45 * f[4][1] + 7. * (7. + sqrt(21)) / 360 * f[5][1] + 7. * (7. - sqrt(21)) / 360 * f[6][1]));
 			dir_SSB[2] = -(initPos[2] + h * initVel[2] + hp2 * (1. / 20 * f[0][2] + 8. / 45 * f[4][2] + 7. * (7. + sqrt(21)) / 360 * f[5][2] + 7. * (7. - sqrt(21)) / 360 * f[6][2]));
-			calc_accel(config_out, dir_SSB, &body[9], f[8], initVel, PRDconst);
+			calc_accel(config_out, dir_SSB, &body[9], f[8], initVel, PRDconst, dtime[8] - dtime[1]);
 			//printf("\nf9 - dir_SSB[0]: %.16le", dir_SSB[0]);
 
 			// Absolute error (2-norm)
