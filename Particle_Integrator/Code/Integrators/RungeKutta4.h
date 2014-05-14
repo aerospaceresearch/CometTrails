@@ -2,6 +2,17 @@
 
 int RungeKutta4(configuration_values *config_out, SpiceDouble *nstate, FILE *statefile)
 {
+	// Select body position function to use ((*bodyPosFP) for spice, return_SSB for (0,0,0))
+	void(*bodyPosFP)(SpiceInt, SpiceDouble, ConstSpiceChar *, ConstSpiceChar *, SpiceInt, SpiceDouble[3], SpiceDouble *);
+	if (config_out->ssb_centered == 1)
+	{
+		bodyPosFP = &return_SSB;
+	}
+	else
+	{
+		bodyPosFP = &spkezp_c;
+	}
+
 	//Create some variables
 	int j, i = 0;
 	SpiceDouble lt, dt, dt2;
@@ -29,7 +40,7 @@ int RungeKutta4(configuration_values *config_out, SpiceDouble *nstate, FILE *sta
 #pragma omp critical(SPICE)
 		{
 			//Critical section is only executed on one thread at a time (spice is not threadsafe)
-			spkezp_c(config_out->body_int[j], nstate[6], "ECLIPJ2000", "NONE", 0, body_end[j], &lt);
+			(*bodyPosFP)(config_out->body_int[j], nstate[6], "ECLIPJ2000", "NONE", 0, body_end[j], &lt);
 		}
 	}
 
@@ -69,7 +80,7 @@ int RungeKutta4(configuration_values *config_out, SpiceDouble *nstate, FILE *sta
 		dir_SSB[0] = -initPos[0];
 		dir_SSB[1] = -initPos[1];
 		dir_SSB[2] = -initPos[2];
-		calc_accel(config_out->N_bodys, config_out->GM, dir_SSB, &body_pre, k_acc_1, config_out->body_int, initVel, PRDconst);
+		calc_accel(config_out, dir_SSB, &body_pre, k_acc_1, initVel, PRDconst);
 		k_vel_1[0] = initVel[0];
 		k_vel_1[1] = initVel[1];
 		k_vel_1[2] = initVel[2];
@@ -102,7 +113,7 @@ int RungeKutta4(configuration_values *config_out, SpiceDouble *nstate, FILE *sta
 #pragma omp critical(SPICE)
 			{
 				//Critical section is only executed on one thread at a time (spice is not threadsafe)
-				spkezp_c(config_out->body_int[j], initTime + dt, "ECLIPJ2000", "NONE", 0, body_end[j], &lt);
+				(*bodyPosFP)(config_out->body_int[j], initTime + dt, "ECLIPJ2000", "NONE", 0, body_end[j], &lt);
 			} // ~94% of all computing time is spent here, mostly in spkgps
 			body_mid[j][0] = (body_pre[j][0] + body_end[j][0]) / 2;
 			body_mid[j][1] = (body_pre[j][1] + body_end[j][1]) / 2;
@@ -113,7 +124,7 @@ int RungeKutta4(configuration_values *config_out, SpiceDouble *nstate, FILE *sta
 		dir_SSB[0] = -(initPos[0] + k_vel_1[0] * dt2);
 		dir_SSB[1] = -(initPos[1] + k_vel_1[1] * dt2);
 		dir_SSB[2] = -(initPos[2] + k_vel_1[2] * dt2);
-		calc_accel(config_out->N_bodys, config_out->GM, dir_SSB, &body_mid, k_acc_2, config_out->body_int, initVel, PRDconst);
+		calc_accel(config_out, dir_SSB, &body_mid, k_acc_2, initVel, PRDconst);
 		k_vel_2[0] = initVel[0] + k_acc_1[0] * dt2;
 		k_vel_2[1] = initVel[1] + k_acc_1[1] * dt2;
 		k_vel_2[2] = initVel[2] + k_acc_1[2] * dt2;
@@ -122,7 +133,7 @@ int RungeKutta4(configuration_values *config_out, SpiceDouble *nstate, FILE *sta
 		dir_SSB[0] = -(initPos[0] + k_vel_2[0] * dt2);
 		dir_SSB[1] = -(initPos[1] + k_vel_2[1] * dt2);
 		dir_SSB[2] = -(initPos[2] + k_vel_2[2] * dt2);
-		calc_accel(config_out->N_bodys, config_out->GM, dir_SSB, &body_mid, k_acc_3, config_out->body_int, initVel, PRDconst);
+		calc_accel(config_out, dir_SSB, &body_mid, k_acc_3, initVel, PRDconst);
 		k_vel_3[0] = initVel[0] + k_acc_2[0] * dt2;
 		k_vel_3[1] = initVel[1] + k_acc_2[1] * dt2;
 		k_vel_3[2] = initVel[2] + k_acc_2[2] * dt2;
@@ -131,7 +142,7 @@ int RungeKutta4(configuration_values *config_out, SpiceDouble *nstate, FILE *sta
 		dir_SSB[0] = -(initPos[0] + k_vel_3[0] * dt);
 		dir_SSB[1] = -(initPos[1] + k_vel_3[1] * dt);
 		dir_SSB[2] = -(initPos[2] + k_vel_3[2] * dt);
-		calc_accel(config_out->N_bodys, config_out->GM, dir_SSB, &body_end, k_acc_4, config_out->body_int, initVel, PRDconst);
+		calc_accel(config_out, dir_SSB, &body_end, k_acc_4, initVel, PRDconst);
 		k_vel_4[0] = initVel[0] + k_acc_3[0] * dt;
 		k_vel_4[1] = initVel[1] + k_acc_3[1] * dt;
 		k_vel_4[2] = initVel[2] + k_acc_3[2] * dt;

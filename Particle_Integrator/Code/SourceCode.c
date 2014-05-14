@@ -21,6 +21,7 @@
 #endif
 
 
+
 //BEGIN	Function cross-platform compatibility
 #ifdef _WIN32
 	#define SLEEP( a1 ) Sleep( a1 )
@@ -182,6 +183,8 @@ int main(void)
 	printf("\n bodys_ID		=");
 	for (j = 0; j < config_out.N_bodys; j++)
 		printf(" %d", config_out.body_int[j]);
+	if (config_out.ssb_centered == 1)
+		printf("\n ssb-centered	= %d", config_out.ssb_centered);
 	if (config_out.algorithm == 1)
 		printf("\n dv_step		= %le", config_out.dv_step);
 	else if (config_out.algorithm == 2)
@@ -585,6 +588,9 @@ static int handler(void* user, const char* section, const char* name, const char
 	if (MATCH("simulation", "ALGORITHM")) {
 		pconfig->algo = strdup(value);
 	}
+	if (MATCH("simulation", "SSB_CENTERED")) {
+		pconfig->ssbc = atoi(value);
+	}
 	if (MATCH("simulation", "FINAL_TIME")) {
 		pconfig->finaltime = strdup(value);
 	}
@@ -644,6 +650,7 @@ int read_configuration(configuration_values *config_out)
 
 	// Set default values
 	config.algo = "RK4";
+	config.ssbc = 0;
 	config.finaltime = "";
 	config.starttimes = "1 JAN 1000";
 	config.nbodys = 0;
@@ -685,6 +692,9 @@ int read_configuration(configuration_values *config_out)
 		config_out->algorithm = 0; // invalid input
 	}
 
+	//Center bodies at SSB?
+	config_out->ssb_centered = config.ssbc;
+
 	//Set number of threads
 	config_out->number_of_threads = config.nthreads;
 
@@ -711,7 +721,7 @@ int read_configuration(configuration_values *config_out)
 	}
 
 
-	//Set bodys
+	//Set bodies
 	if (config.nbodys == 0)
 	{
 		printf("\n\nerror:	N_BODYS not set");

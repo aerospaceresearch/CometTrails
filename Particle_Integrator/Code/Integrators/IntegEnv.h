@@ -1,7 +1,7 @@
 // Functions called by integration algorithms
 
 /* Calculate the acceleration of a particle based on the position of the body relative to the SSB */
-void calc_accel(int N_bodys, SpiceDouble GM[], SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel, int body_int[], SpiceDouble Vel[], SpiceDouble PRDconst)
+void calc_accel(configuration_values *config_out, SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel, SpiceDouble *Vel, SpiceDouble PRDconst)
 {
 	/* Units:	lSol	[kg*km^2/s^3] = [W*1e6]
 	 *			GM		[km^3/s^2]
@@ -19,7 +19,7 @@ void calc_accel(int N_bodys, SpiceDouble GM[], SpiceDouble dir_SSB[], SpiceDoubl
 	accel[1] = 0;
 	accel[2] = 0;
 
-	for (b = 0; b < N_bodys; b++)
+	for (b = 0; b < config_out->N_bodys; b++)
 	{
 		direct_body[0] = (*body_state)[b][0] + dir_SSB[0];
 		direct_body[1] = (*body_state)[b][1] + dir_SSB[1];
@@ -28,11 +28,11 @@ void calc_accel(int N_bodys, SpiceDouble GM[], SpiceDouble dir_SSB[], SpiceDoubl
 		// Calculate GM*r^3
 		absr = sqrt(direct_body[0] * direct_body[0] + direct_body[1] * direct_body[1] + direct_body[2] * direct_body[2]); // abs(distance)
 		r3 = absr*absr*absr; // ~ten times faster than pow((r1^2 + r2^2 + r3^2),1.5)
-		GMr3 = GM[b] / r3;
+		GMr3 = config_out->GM[b] / r3;
 
 #ifdef __PRD
 		// Sun: Calculate PRD
-		if (body_int[b] == 10)
+		if (config_out->body_int[b] == 10)
 		{
 			/* Calculate absolute acceleration due to Poynting-Robertson effect
 			 * 
@@ -89,4 +89,24 @@ SpiceDouble calc_prdc(configuration_values *config_out)
 #else // not __PRD
 	return 0.0;
 #endif // __PRD
+}
+
+
+
+/* Function imitating spkezp_c but always returning the SSB as the body poisition.
+   Only used when SSB_CENTERED	=1
+   */
+void return_SSB(SpiceInt            targ,
+				SpiceDouble         et,
+				ConstSpiceChar    * ref,
+				ConstSpiceChar    * abcorr,
+				SpiceInt            obs,
+				SpiceDouble         ptarg[3],
+				SpiceDouble       * lt) // Most parameters are unreferenced but necessary for identical function calls to spkezp_c
+{
+	int j;
+	for (j = 0; j < 3; j++)
+	{
+		ptarg[j] = (SpiceDouble)0.0;
+	}
 }

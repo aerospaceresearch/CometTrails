@@ -4,6 +4,7 @@
 typedef struct
 {
 	int algorithm;
+	int ssb_centered;
 	char inputfpath[260];
 	char outputpath[260];
 	int number_of_threads;
@@ -27,6 +28,7 @@ typedef struct
 {
 	// Simulation
 	const char* algo;
+	int ssbc;
 	const char* finaltime;
 	const char* starttimes;
 	int nbodys;
