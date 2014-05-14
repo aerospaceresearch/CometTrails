@@ -256,7 +256,7 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 			dir_SSB[0] = -(initPos[0] + h * initVel[0] + hp2 * (1. / 20 * f[0][0] + 8. / 45 * f[4][0] + 7. * (7. + sqrt(21)) / 360 * f[5][0] + 7. * (7. - sqrt(21)) / 360 * f[6][0]));
 			dir_SSB[1] = -(initPos[1] + h * initVel[1] + hp2 * (1. / 20 * f[0][1] + 8. / 45 * f[4][1] + 7. * (7. + sqrt(21)) / 360 * f[5][1] + 7. * (7. - sqrt(21)) / 360 * f[6][1]));
 			dir_SSB[2] = -(initPos[2] + h * initVel[2] + hp2 * (1. / 20 * f[0][2] + 8. / 45 * f[4][2] + 7. * (7. + sqrt(21)) / 360 * f[5][2] + 7. * (7. - sqrt(21)) / 360 * f[6][2]));
-			calc_accel(config_out, dir_SSB, &body[9], f[8], initVel, PRDconst, dtime[9] - dtime[1]);
+			calc_accel(config_out, dir_SSB, &body[9], f[8], initVel, PRDconst, dtime[8] - dtime[1]);
 			//printf("\nf9 - dir_SSB[0]: %.16le", dir_SSB[0]);
 
 			// Absolute error (2-norm)
