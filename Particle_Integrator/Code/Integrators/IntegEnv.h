@@ -1,7 +1,7 @@
 // Functions called by integration algorithms
 
 /* Calculate the acceleration of a particle based on the position of the body relative to the SSB */
-void calc_accel(configuration_values *config_out, SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel, SpiceDouble *Vel, SpiceDouble PRDconst)
+void calc_accel(configuration_values *config_out, SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel, SpiceDouble *Vel, SpiceDouble PRDconst, SpiceDouble dt)
 {
 	/* Units:	lSol	[kg*km^2/s^3] = [W*1e6]
 	 *			GM		[km^3/s^2]
@@ -12,7 +12,9 @@ void calc_accel(configuration_values *config_out, SpiceDouble dir_SSB[], SpiceDo
 	 *			ansV	[km/s]
 	 */
 
-	SpiceDouble direct_body[3], r3, GMr3, absr, aPRD, absV;
+	SpiceDouble direct_body[3], r3, GMr3, absr;
+	SpiceDouble aPRD; // absolute PRD-based acceleration
+	SpiceDouble iVel[3], absiV; // Intermediate Speed
 	int b; // body
 
 	accel[0] = 0;
@@ -30,29 +32,39 @@ void calc_accel(configuration_values *config_out, SpiceDouble dir_SSB[], SpiceDo
 		r3 = absr*absr*absr; // ~ten times faster than pow((r1^2 + r2^2 + r3^2),1.5)
 		GMr3 = config_out->GM[b] / r3;
 
-#ifdef __PRD
-		// Sun: Calculate PRD
-		if (config_out->body_int[b] == 10)
-		{
-			/* Calculate absolute acceleration due to Poynting-Robertson effect
-			 * 
-			 * PRDconst = lSol * (particle_radius / 1000 * particle_radius / 1000) / (4. * c2) * sqrt(GM[b]) / particle_mass;
-			 */
-			aPRD = PRDconst / sqrt(absr*absr*absr*absr*absr);
-			absV = sqrt(Vel[0] * Vel[0] + Vel[1] * Vel[1] + Vel[2] * Vel[2]);
-			
-			accel[0] += aPRD * -Vel[0] / absV;
-			accel[1] += aPRD * -Vel[1] / absV;
-			accel[2] += aPRD * -Vel[2] / absV;
-			//printf("\n apr * -Vel[0] / absv: %.16le", aPRD * -Vel[0] / absv);
-		}
-#endif // __PRD
-
 		accel[2] += GMr3 * direct_body[2];
 		accel[0] += GMr3 * direct_body[0];
 		accel[1] += GMr3 * direct_body[1];
 		// printf("\n GMr3 * direct_body[0]: %.16le", GMr3 * direct_body[0]);
 	}
+
+#ifdef __PRD
+	for (b = 0; b < config_out->N_bodys; b++)
+	{
+		// Sun: Calculate PRD
+		if (config_out->body_int[b] == 10)
+		{
+			/* 
+			Calculate absolute acceleration due to Poynting-Robertson effect
+			
+			PRDconst = lSol * (particle_radius / 1000 * particle_radius / 1000) / (4. * c2) * sqrt(GM[b]) / particle_mass;
+			*/
+			aPRD = PRDconst / sqrt(absr*absr*absr*absr*absr);
+
+			/* Calculate velocity intermediate value */
+			iVel[0] = Vel[0] + dt * accel[0];
+			iVel[1] = Vel[1] + dt * accel[1];
+			iVel[2] = Vel[2] + dt * accel[2];
+
+			absiV = sqrt(iVel[0] * iVel[0] + iVel[1] * iVel[1] + iVel[2] * iVel[2]);
+
+			accel[0] += aPRD * -iVel[0] / absiV;
+			accel[1] += aPRD * -iVel[1] / absiV;
+			accel[2] += aPRD * -iVel[2] / absiV;
+			// printf("\n apr * -Vel[0] / absv: %.16le", aPRD * -Vel[0] / absv);
+		}
+	}
+#endif // __PRD
 }
 
 
