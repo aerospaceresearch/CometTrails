@@ -1,7 +1,10 @@
-/* define the struct type to store the processed values from the config file */
+/* PI_types.h - defines types used across functions */
+
+/* struct type to store the processed values from the config file */
 typedef struct
 {
 	int algorithm;
+	int ssb_centered;
 	char inputfpath[260];
 	char outputpath[260];
 	int number_of_threads;
@@ -17,13 +20,15 @@ typedef struct
 	int first_particle_number;
 	SpiceDouble particle_mass;
 	SpiceDouble particle_density;
+	SpiceDouble particle_radius;
 } configuration_values;
 
-/* define the struct type for the config file readout */
+/* struct type for the config file readout */
 typedef struct
 {
 	// Simulation
 	const char* algo;
+	int ssbc;
 	const char* finaltime;
 	const char* starttimes;
 	int nbodys;

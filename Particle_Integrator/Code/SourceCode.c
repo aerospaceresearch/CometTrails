@@ -15,13 +15,14 @@
 	#include <sys/stat.h> // only needed for mkdir()
 #endif
 
-// activate timing: Add preprocessor definition "__WTIMING"
+// Activate timing: Add preprocessor definition "__WTIMING"
 #ifdef __WTIMING
 	#include <time.h>
 #endif
 
 
-// Function cross-platform compatibility
+
+//BEGIN	Function cross-platform compatibility
 #ifdef _WIN32
 	#define SLEEP( a1 ) Sleep( a1 )
 	#define mkdir( a1, a2 ) _mkdir( a1 )
@@ -46,9 +47,10 @@
 #else
 	#define OS_SEP "/"
 #endif
-// END Function cross-platform compatibility
+//END  	Function cross-platform compatibility
 
 
+// Custom header files
 #include <PI_types.h>
 #include <IntegEnv.h>
 #include <RungeKutta4.h>
@@ -84,6 +86,7 @@ int main(void)
 	config_out.first_particle_number = 0;
 	config_out.particle_mass = 0;
 	config_out.particle_density = 0;
+	config_out.particle_radius = 0;
 	config_out.save_as_binary = 0;
 	
 	//Load Spice kernels
@@ -113,7 +116,7 @@ int main(void)
 		return 1;
 	}
 	j = 0;
-	while ((c = fgetc(particles_start_file)) != EOF) //#tmp# requires newline before eof
+	while ((c = fgetc(particles_start_file)) != EOF) // requires newline before eof
 	{
 		if (c == '%')
 		{
@@ -181,6 +184,8 @@ int main(void)
 	printf("\n bodys_ID		=");
 	for (j = 0; j < config_out.N_bodys; j++)
 		printf(" %d", config_out.body_int[j]);
+	if (config_out.ssb_centered == 1)
+		printf("\n ssb-centered		= %d", config_out.ssb_centered);
 	if (config_out.algorithm == 1)
 		printf("\n dv_step		= %le", config_out.dv_step);
 	else if (config_out.algorithm == 2)
@@ -188,6 +193,7 @@ int main(void)
 	if (config_out.particle_mass > 0)
 		printf("\n particle_mass		= %le", config_out.particle_mass);
 	printf("\n particle_density	= %le", config_out.particle_density);
+	printf("\n particle_radius	= %le", config_out.particle_radius);
 	if (config_out.first_particle_number != 1)
 		printf("\n first_particle_number	= %d", config_out.first_particle_number);
 	printf("\n save_nth		= %d", config_out.n);
@@ -340,10 +346,10 @@ int main(void)
 				switch (config_out.algorithm)
 				{
 				case 1:
-					err = RungeKutta4(config_out.N_bodys, config_out.body_int, config_out.GM, config_out.final_time, config_out.start_time_save, config_out.dv_step, nstate, statefile, config_out.n);
+					err = RungeKutta4(&config_out, nstate, statefile);
 					break;
 				case 2:
-					err = RungeKutta67(config_out.N_bodys, config_out.body_int, config_out.GM, config_out.final_time, config_out.start_time_save, config_out.e_target, nstate, statefile, config_out.n);
+					err = RungeKutta67(&config_out, nstate, statefile);
 					break;
 				default:
 					err = 1;
@@ -601,6 +607,9 @@ static int handler(void* user, const char* section, const char* name, const char
 	if (MATCH("simulation", "ALGORITHM")) {
 		pconfig->algo = strdup(value);
 	}
+	if (MATCH("simulation", "SSB_CENTERED")) {
+		pconfig->ssbc = atoi(value);
+	}
 	if (MATCH("simulation", "FINAL_TIME")) {
 		pconfig->finaltime = strdup(value);
 	}
@@ -660,6 +669,7 @@ int read_configuration(configuration_values *config_out)
 
 	// Set default values
 	config.algo = "RK4";
+	config.ssbc = 0;
 	config.finaltime = "";
 	config.starttimes = "1 JAN 1000";
 	config.nbodys = 0;
@@ -701,6 +711,9 @@ int read_configuration(configuration_values *config_out)
 		config_out->algorithm = 0; // invalid input
 	}
 
+	//Center bodies at SSB?
+	config_out->ssb_centered = config.ssbc;
+
 	//Set number of threads
 	config_out->number_of_threads = config.nthreads;
 
@@ -717,9 +730,17 @@ int read_configuration(configuration_values *config_out)
 	str2et_c(config.finaltime, &config_out->final_time);
 
 	//Set start date for saving
-	str2et_c(config.starttimes, &config_out->start_time_save);
+	if ((strcmp(config.starttimes, "0") == 0) || (strcmp(config.starttimes, "") == 0))
+	{
+		str2et_c("1 JAN 1000", &config_out->start_time_save);
+	}
+	else 
+	{
+		str2et_c(config.starttimes, &config_out->start_time_save);
+	}
 
-	//Set bodys
+
+	//Set bodies
 	if (config.nbodys == 0)
 	{
 		printf("\n\nerror:	N_BODYS not set");
@@ -795,11 +816,11 @@ int read_configuration(configuration_values *config_out)
 		config_out->particle_density = (SpiceDouble)config.pdensity;
 
 		//Manipulate sun mass to simulate solar pressure
-		SpiceDouble Qpr, PI, particle_radius, beta;
+		SpiceDouble Qpr, PI, beta;
 		Qpr = 1.0;
 		PI = 3.1416;
-		particle_radius = pow((config_out->particle_mass) / ((1.3333) * PI * (config_out->particle_density)), 0.3333);
-		beta = 5.7e-4 * (Qpr / ((config_out->particle_density) * particle_radius));
+		config_out->particle_radius = pow((config_out->particle_mass) / ((1.3333) * PI * (config_out->particle_density)), 0.3333); // Unit: [m]!
+		beta = 5.7e-4 * (Qpr / ((config_out->particle_density) * config_out->particle_radius));
 		for (j = 0; j < config_out->N_bodys; j++)
 		{
 			if (config_out->body_int[j] == 10)

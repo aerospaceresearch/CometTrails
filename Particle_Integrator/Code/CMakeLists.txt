@@ -34,6 +34,8 @@ option (WTIMING
 	"Measure computing duration" ON)
 option (WSTEPINFO
 	"Print time step extremes and number of steps" OFF)
+option (PRD
+	"Take Poynting-Robertson drag into account" ON)
 
 
 # INCLUDE
@@ -60,6 +62,10 @@ if (WSTEPINFO)
 	add_definitions(-D__WTIMESTEP)
 	message("TIME STEP EXTREMES OUTPUT ACTIVE")
 endif (WSTEPINFO)
+if (PRD)
+	add_definitions(-D__PRD)
+	message("PRD ACTIVE")
+endif (PRD)
 
 
 # LIBRARIES

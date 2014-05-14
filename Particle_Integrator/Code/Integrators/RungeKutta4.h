@@ -1,22 +1,33 @@
 /* 4th order Runge-Kutta method */
 
-int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final_time, SpiceDouble start_time_save, SpiceDouble dv_step, SpiceDouble *nstate, FILE *statefile, int n)
+int RungeKutta4(configuration_values *config_out, SpiceDouble *nstate, FILE *statefile)
 {
+	// Select body position function to use ((*bodyPosFP) for spice, return_SSB for (0,0,0))
+	void(*bodyPosFP)(SpiceInt, SpiceDouble, ConstSpiceChar *, ConstSpiceChar *, SpiceInt, SpiceDouble[3], SpiceDouble *);
+	if (config_out->ssb_centered == 1)
+	{
+		bodyPosFP = &return_SSB;
+	}
+	else
+	{
+		bodyPosFP = &spkezp_c;
+	}
+
 	//Create some variables
 	int j, i = 0;
 	SpiceDouble lt, dt, dt2;
 
 	//Create body arrays and set initial body positions
 	SpiceDouble **body_pre, **body_mid, **body_end;
-	body_pre = malloc(N_bodys * sizeof(SpiceDouble *));
-	body_mid = malloc(N_bodys * sizeof(SpiceDouble *));
-	body_end = malloc(N_bodys * sizeof(SpiceDouble *));
+	body_pre = malloc(config_out->N_bodys * sizeof(SpiceDouble *));
+	body_mid = malloc(config_out->N_bodys * sizeof(SpiceDouble *));
+	body_end = malloc(config_out->N_bodys * sizeof(SpiceDouble *));
 	if (body_pre == NULL || body_mid == NULL || body_end == NULL)
 	{
 		printf("\nerror: could not allocate body state array (OOM)");
 		return 1;
 	}
-	for (j = 0; j < N_bodys; j++)
+	for (j = 0; j < config_out->N_bodys; j++)
 	{
 		body_pre[j] = malloc(3 * sizeof(SpiceDouble));
 		body_mid[j] = malloc(3 * sizeof(SpiceDouble));
@@ -29,7 +40,7 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 #pragma omp critical(SPICE)
 		{
 			//Critical section is only executed on one thread at a time (spice is not threadsafe)
-			spkezp_c(body_int[j], nstate[6], "ECLIPJ2000", "NONE", 0, body_end[j], &lt);
+			(*bodyPosFP)(config_out->body_int[j], nstate[6], "ECLIPJ2000", "NONE", 0, body_end[j], &lt);
 		}
 	}
 
@@ -38,13 +49,16 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 	SpiceDouble k_acc_1[3], k_acc_2[3], k_acc_3[3], k_acc_4[3];
 	SpiceDouble k_vel_1[3], k_vel_2[3], k_vel_3[3], k_vel_4[3];
 
+	// Constant part of PRD
+	SpiceDouble PRDconst = calc_prdc(config_out);
+
 #ifdef __WTIMESTEP
-	SpiceDouble dtmin = final_time - nstate[6], dtmax = 0.0;
+	SpiceDouble dtmin = config_out->final_time - nstate[6], dtmax = 0.0;
 	int numsteps = 0;
 #endif
 
 	//Integrate
-	while (nstate[6] < final_time)
+	while (nstate[6] < config_out->final_time)
 	{
 
 		//Set initial state for this step
@@ -55,7 +69,7 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 		initVel[1] = nstate[4];
 		initVel[2] = nstate[5];
 		initTime = nstate[6];
-		for (j = 0; j < N_bodys; j++)
+		for (j = 0; j < config_out->N_bodys; j++)
 		{
 			body_pre[j][0] = body_end[j][0];
 			body_pre[j][1] = body_end[j][1];
@@ -66,14 +80,14 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 		dir_SSB[0] = -initPos[0];
 		dir_SSB[1] = -initPos[1];
 		dir_SSB[2] = -initPos[2];
-		calc_accel(N_bodys, GM, dir_SSB, &body_pre, k_acc_1);
+		calc_accel(config_out, dir_SSB, &body_pre, k_acc_1, initVel, PRDconst, 0.0);
 		k_vel_1[0] = initVel[0];
 		k_vel_1[1] = initVel[1];
 		k_vel_1[2] = initVel[2];
 
 		//Set dynamic step size
 		abs_acc = sqrt(k_acc_1[0] * k_acc_1[0] + k_acc_1[1] * k_acc_1[1] + k_acc_1[2] * k_acc_1[2]);
-		dt = (dv_step / abs_acc);
+		dt = (config_out->dv_step / abs_acc);
 		dt2 = dt / 2;
 
 #ifdef __WTIMESTEP
@@ -94,12 +108,12 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 		}*/
 
 		//Get body positions with SPICE
-		for (j = 0; j < N_bodys; j++)
+		for (j = 0; j < config_out->N_bodys; j++)
 		{
 #pragma omp critical(SPICE)
 			{
 				//Critical section is only executed on one thread at a time (spice is not threadsafe)
-				spkezp_c(body_int[j], initTime + dt, "ECLIPJ2000", "NONE", 0, body_end[j], &lt);
+				(*bodyPosFP)(config_out->body_int[j], initTime + dt, "ECLIPJ2000", "NONE", 0, body_end[j], &lt);
 			} // ~94% of all computing time is spent here, mostly in spkgps
 			body_mid[j][0] = (body_pre[j][0] + body_end[j][0]) / 2;
 			body_mid[j][1] = (body_pre[j][1] + body_end[j][1]) / 2;
@@ -110,7 +124,7 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 		dir_SSB[0] = -(initPos[0] + k_vel_1[0] * dt2);
 		dir_SSB[1] = -(initPos[1] + k_vel_1[1] * dt2);
 		dir_SSB[2] = -(initPos[2] + k_vel_1[2] * dt2);
-		calc_accel(N_bodys, GM, dir_SSB, &body_mid, k_acc_2);
+		calc_accel(config_out, dir_SSB, &body_mid, k_acc_2, initVel, PRDconst, dt2);
 		k_vel_2[0] = initVel[0] + k_acc_1[0] * dt2;
 		k_vel_2[1] = initVel[1] + k_acc_1[1] * dt2;
 		k_vel_2[2] = initVel[2] + k_acc_1[2] * dt2;
@@ -119,7 +133,7 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 		dir_SSB[0] = -(initPos[0] + k_vel_2[0] * dt2);
 		dir_SSB[1] = -(initPos[1] + k_vel_2[1] * dt2);
 		dir_SSB[2] = -(initPos[2] + k_vel_2[2] * dt2);
-		calc_accel(N_bodys, GM, dir_SSB, &body_mid, k_acc_3);
+		calc_accel(config_out, dir_SSB, &body_mid, k_acc_3, initVel, PRDconst, dt2);
 		k_vel_3[0] = initVel[0] + k_acc_2[0] * dt2;
 		k_vel_3[1] = initVel[1] + k_acc_2[1] * dt2;
 		k_vel_3[2] = initVel[2] + k_acc_2[2] * dt2;
@@ -128,7 +142,7 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 		dir_SSB[0] = -(initPos[0] + k_vel_3[0] * dt);
 		dir_SSB[1] = -(initPos[1] + k_vel_3[1] * dt);
 		dir_SSB[2] = -(initPos[2] + k_vel_3[2] * dt);
-		calc_accel(N_bodys, GM, dir_SSB, &body_end, k_acc_4);
+		calc_accel(config_out, dir_SSB, &body_end, k_acc_4, initVel, PRDconst, dt);
 		k_vel_4[0] = initVel[0] + k_acc_3[0] * dt;
 		k_vel_4[1] = initVel[1] + k_acc_3[1] * dt;
 		k_vel_4[2] = initVel[2] + k_acc_3[2] * dt;
@@ -146,9 +160,9 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 		i++;
 
 		//Save nth state
-		if (i == n)
+		if (i == config_out->n)
 		{
-			if (nstate[6] > start_time_save)
+			if (nstate[6] > config_out->start_time_save)
 			{
 				printpdata(statefile, nstate);
 			}
@@ -163,7 +177,7 @@ int RungeKutta4(int N_bodys, int body_int[], SpiceDouble GM[], SpiceDouble final
 	}
 
 	//Deallocate body array
-	for (j = 0; j < N_bodys; j++)
+	for (j = 0; j < config_out->N_bodys; j++)
 	{
 		free(body_pre[j]);
 		free(body_mid[j]);
