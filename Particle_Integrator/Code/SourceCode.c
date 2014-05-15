@@ -51,8 +51,8 @@
 
 
 // Custom header files
-#include <PI_types.h>
-#include <IntegEnv.h>
+#include <PI_types.h> // configuration_values, configuration_readout
+#include <IntegEnv.h> // calc_accel(), printpdata(), calc_prdc(), return_SSB()
 #include <RungeKutta4.h>
 #include <RungeKutta67.h>
 
@@ -649,6 +649,9 @@ static int handler(void* user, const char* section, const char* name, const char
 	else if (MATCH("particles", "PARTICLE_DENSITY")) {
 		pconfig->pdensity = atoi(value);
 	}
+	else if (MATCH("particles", "Q_PR")) {
+		pconfig->q_pr = strdup(value);
+	}
 	else if (MATCH("particles", "FIRST_PARTICLE_NUMBER")) {
 		pconfig->fpnum = atoi(value);
 	}
@@ -681,8 +684,9 @@ int read_configuration(configuration_values *config_out)
 	config.savebin = 0;
 	config.inputfn = "";
 	config.outputfn = "default";
-	config.pmass = 0;
+	config.pmass = "0.";
 	config.pdensity = 1000;
+	config.q_pr = "1.";
 	config.fpnum = 1;
 
 	// Parse configuration file
@@ -807,6 +811,10 @@ int read_configuration(configuration_values *config_out)
 	char outputfile[260] = "";
 	sprintf_s(outputfile, 260, "%s%s", config_out->outputpath, temp);
 	strcpy(config_out->outputpath, 260, outputfile);
+
+	// Set Mie scattering coefficient
+	sscanf(config.q_pr, "%lf", &config_out->q_pr);
+
 	//Set mass of particles
 	//strcpy(temp, sizeof(temp), config.pmass);
 	sscanf(config.pmass, "%lf", &config_out->particle_mass);
@@ -816,11 +824,10 @@ int read_configuration(configuration_values *config_out)
 		config_out->particle_density = (SpiceDouble)config.pdensity;
 
 		//Manipulate sun mass to simulate solar pressure
-		SpiceDouble Qpr, PI, beta;
-		Qpr = 1.0;
+		SpiceDouble PI, beta;
 		PI = 3.1416;
 		config_out->particle_radius = pow((config_out->particle_mass) / ((1.3333) * PI * (config_out->particle_density)), 0.3333); // Unit: [m]!
-		beta = 5.7e-4 * (Qpr / ((config_out->particle_density) * config_out->particle_radius));
+		beta = 5.7e-4 * (config_out->q_pr / ((config_out->particle_density) * config_out->particle_radius));
 		for (j = 0; j < config_out->N_bodys; j++)
 		{
 			if (config_out->body_int[j] == 10)
@@ -833,6 +840,8 @@ int read_configuration(configuration_values *config_out)
 
 	return 0;
 }
+
+
 
 int convert_results_into_binary(configuration_values config_out, int particles_count, double *multiplication_factor)
 {
