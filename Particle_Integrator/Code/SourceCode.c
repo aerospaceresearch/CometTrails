@@ -94,12 +94,11 @@ int main(void)
 	furnsh_c("kernels_generic.txt");
 	printf("...done.");
 
-	//READ CONFIG FILE
+	// Read configuration file
 	printf("\nLoading configuration...	");
 	if (read_configuration(&config_data) != 0)
 	{
 		printf("\n\nerror:	could not read configuration.\n");
-		//SLEEP(4000);
 		return 1;
 	}
 	printf("...done.");
@@ -108,7 +107,6 @@ int main(void)
 	if (calc_pInfo(&config_data) != 0)
 	{
 		printf("\n\nerror:	could not process configuration values.\n");
-		//SLEEP(4000);
 		return 1;
 	}
 	printf("...done.");

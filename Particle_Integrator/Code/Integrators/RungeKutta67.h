@@ -132,6 +132,13 @@ int RungeKutta67(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 				zeroEps = 1;
 			}
 
+#ifdef __ENDONTIME
+			if (time[1] + h > config_data->final_time)
+			{
+				h = config_data->final_time - time[1];
+			}
+#endif // __ENDONTIME
+
 			// calculate times
 			dtime[2] = dtime[1] + h / 10;
 			dtime[3] = dtime[1] + h / 5;

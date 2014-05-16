@@ -34,8 +34,8 @@ option (WTIMING
 	"Measure computing duration" ON)
 option (WSTEPINFO
 	"Print time step extremes and number of steps" OFF)
-option (PRD
-	"Take Poynting-Robertson drag into account" ON)
+option (ENDONTIME
+	"Last step ends precisely on given end time" OFF)
 
 
 # INCLUDE
@@ -62,10 +62,10 @@ if (WSTEPINFO)
 	add_definitions(-D__WTIMESTEP)
 	message("TIME STEP EXTREMES OUTPUT ACTIVE")
 endif (WSTEPINFO)
-if (PRD)
-	add_definitions(-D__PRD)
-	message("PRD ACTIVE")
-endif (PRD)
+if (ENDONTIME)
+	add_definitions(-D__ENDONTIME)
+	message("ENDONTIME ACTIVE")
+endif (ENDONTIME)
 
 
 # LIBRARIES

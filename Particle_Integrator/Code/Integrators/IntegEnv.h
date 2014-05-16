@@ -74,7 +74,7 @@ int printpdata(FILE *statefile, SpiceDouble *nstate)
 
 
 /* Calculate particle-constant part of PRD */
-SpiceDouble calc_pInfo(configuration_values *config_data)
+int calc_pInfo(configuration_values *config_data)
 {
 	int b;
 
