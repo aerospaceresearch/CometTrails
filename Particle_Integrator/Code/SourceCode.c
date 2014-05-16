@@ -859,12 +859,12 @@ int convert_results_into_binary(configuration_values config_out, int particles_c
 	}
 	//Set file header
 	result_array[0][0] = config_out.first_particle_number;
-	result_array[0][1] = (config_out.first_particle_number + particles_count);
+	result_array[0][1] = (config_out.first_particle_number + particles_count - 1);
 	result_array[0][2] = (float)config_out.particle_mass;
 	result_array[0][3] = (float)config_out.particle_density;
 	result_array[0][4] = 0;
-	result_array[0][5] = (float)config_out.start_time_save;
-	result_array[0][6] = (float)config_out.final_time;
+	result_array[0][5] = 0;
+	result_array[0][6] = 0;
 
 	//Read in all the particles and save them in result_array
 	for (j = 0; j < particles_count; j++)
@@ -947,6 +947,14 @@ int convert_results_into_binary(configuration_values config_out, int particles_c
 			result_array[l][6] = (float)tempdouble;
 		}
 		fclose(output_file);
+		if (j == 0)
+		{
+			result_array[0][5] = result_array[particle_header_row + 1][6];
+		}
+		if (j == particles_count - 1)
+		{
+			result_array[0][6] = result_array[particle_header_row + 1][6];
+		}
 	}
 	//Save result_array as binary file and delete text files
 	FILE *binout;
