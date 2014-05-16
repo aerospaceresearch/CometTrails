@@ -52,7 +52,7 @@
 
 // Custom header files
 #include <PI_types.h> // configuration_values, configuration_readout
-#include <IntegEnv.h> // calc_accel(), printpdata(), calc_prdc(), return_SSB()
+#include <IntegEnv.h> // calc_accel(), printpdata(), calc_pInfo(), return_SSB()
 #include <RungeKutta4.h>
 #include <RungeKutta67.h>
 
@@ -87,7 +87,6 @@ int main(void)
 	config_data.particle_mass = 0.;
 	config_data.particle_density = 0.;
 	config_data.particle_radius = 0.;
-	config_data.prdconst = 0.;
 	config_data.save_as_binary = 0;
 	
 	//Load Spice kernels
