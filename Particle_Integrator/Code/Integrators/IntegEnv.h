@@ -82,6 +82,8 @@ int printpdata(FILE *statefile, SpiceDouble *nstate)
 /* Calculate particle-constant part of PRD */
 SpiceDouble calc_pInfo(configuration_values *config_data)
 {
+	int j;
+
 	if (config_data->particle_mass > 0)
 	{
 		//Manipulate sun mass to simulate solar pressure
@@ -100,7 +102,6 @@ SpiceDouble calc_pInfo(configuration_values *config_data)
 	}
 
 #ifdef __PRD
-	int j;
 	SpiceDouble cp2 = 89875517873.681764; // speed of light squared, Unit: [km^2/s^2]
 	SpiceDouble lSol = 3.846e20; // Unit: [kg*km^2/s^3] - equivalent to 3.846e26 [W]
 	SpiceDouble PRDconst = 0.; // Unit: [km^3.5/s^2]

@@ -185,10 +185,10 @@ int main(void)
 	if (config_data.start_time_save > (double)-3.155e+10)
 		printf("\n start_time_save	= %le", config_data.start_time_save);
 	if (config_data.save_as_binary){
-		printf("\n saving output in binary format.");
+		printf("\n saving output as	  binary (.ctwu)");
 	}
 	else {
-		printf("\n saving output in text format.");
+		printf("\n saving output as	  text (.txt)");
 	}
 	printf("\n bodys_ID		=");
 	for (j = 0; j < config_data.N_bodys; j++)
@@ -750,7 +750,7 @@ int read_configuration(configuration_values *config_data)
 	//Set start date for saving
 	if ((strcmp(config.starttimes, "0") == 0) || (strcmp(config.starttimes, "") == 0))
 	{
-		str2et_c("1 JAN 1000", &config_data->start_time_save);
+		config_data->start_time_save = -1e+11; // set start time to a long time ago.
 	}
 	else 
 	{
@@ -790,7 +790,7 @@ int read_configuration(configuration_values *config_data)
 
 	//Set which nth state is saved to disc
 	sscanf(config.mult, "%lf", &mult);
-	if (mult < 0.0000000000001)
+	if (mult < 0.00000000001)
 	{
 		//Save every 10nth state. This produces high density of states in the output file and is intended to be used when testing the integrator.
 		config_data->n = 10;
