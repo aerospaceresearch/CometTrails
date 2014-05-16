@@ -12,7 +12,7 @@ void calc_accel(configuration_values *config_out, SpiceDouble dir_SSB[], SpiceDo
 	 *			ansV	[km/s]
 	 */
 
-	SpiceDouble direct_body[3], r3, GMr3, absr;
+	SpiceDouble direct_body[3], r3, GMr3, absr = 0.;
 	SpiceDouble aPRD; // absolute PRD-based acceleration
 	SpiceDouble iVel[3], absiV; // Intermediate Speed
 	int b; // body
@@ -116,6 +116,7 @@ void return_SSB(SpiceInt            targ,
 				SpiceDouble         ptarg[3],
 				SpiceDouble       * lt) // Most parameters are unreferenced but necessary for identical function calls to spkezp_c
 {
+	// not using: targ, et, ref, abcorr, obs, lt
 	int j;
 	for (j = 0; j < 3; j++)
 	{

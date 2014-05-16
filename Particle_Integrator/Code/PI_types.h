@@ -14,13 +14,15 @@ typedef struct
 	int N_bodys;
 	int body_int[10];
 	SpiceDouble GM[10];
-	SpiceDouble dv_step;
-	SpiceDouble e_target;
 	int n;
 	int first_particle_number;
 	SpiceDouble particle_mass;
 	SpiceDouble particle_density;
 	SpiceDouble particle_radius;
+	SpiceDouble q_pr;
+	// Algorithm-specific
+	SpiceDouble dv_step;
+	SpiceDouble e_target;
 } configuration_values;
 
 /* struct type for the config file readout */
@@ -40,6 +42,7 @@ typedef struct
 	const char* inputfn;
 	const char* outputfn;
 	const char* pmass;
+	const char* q_pr;
 	int pdensity;
 	int fpnum;
 	// Algorithm-specific

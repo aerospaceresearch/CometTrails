@@ -51,14 +51,15 @@
 
 
 // Custom header files
-#include <PI_types.h>
-#include <IntegEnv.h>
+#include <PI_types.h> // configuration_values, configuration_readout
+#include <IntegEnv.h> // calc_accel(), printpdata(), calc_prdc(), return_SSB()
 #include <RungeKutta4.h>
 #include <RungeKutta67.h>
 
 bool particle_already_processed(int p, char already_done_path[]);
 bool particle_incomplete(char outputpath[], SpiceDouble *nstate);
 int read_configuration(configuration_values *config_out);
+int convert_results_into_binary(configuration_values config_out, int particles_count, double *multiplication_factor);
 
 
 //Main Program
@@ -354,10 +355,9 @@ int main(void)
 					err = 1;
 					printf("\nerror: unknown integration algorithm: %d", config_out.algorithm);
 				}
-
 				fclose(statefile);
 			}
-
+			
 			//Write the particle number to the already-done file and update progress.txt
 			FILE* done;
 			double fraction;
@@ -434,7 +434,27 @@ int main(void)
 #endif // __WTIMING
 	}
 
-
+	//Convert .txt output into binary
+	if (config_out.save_as_binary == 1)
+	{
+		double *multiplication_factor;
+		multiplication_factor = malloc(particles_count * sizeof(double));
+		if (multiplication_factor == NULL)
+		{
+			printf("\nerror: could not allocate multiplication_factor array (OOM)");
+			return 2;
+		}
+		for (j = 0; j < particles_count; j++)
+		{
+			multiplication_factor[j] = particles_start[j][6];
+		}
+		if (convert_results_into_binary(config_out, particles_count, multiplication_factor) != 0)
+		{
+			printf("\nerror: could not convert to binary");
+			return 2;	
+		}
+	}
+	
 	//Deallocate arrays
 	for (j = 0; j < particles_count; j++)
 		free(particles_start[j]);
@@ -451,7 +471,6 @@ int main(void)
 		printf("\n\nWarning: %d	particles may have been skipped!\n", error_code);
 		return 2;
 	}
-	//SLEEP(3000);
 }
 
 
@@ -630,6 +649,9 @@ static int handler(void* user, const char* section, const char* name, const char
 	else if (MATCH("particles", "PARTICLE_DENSITY")) {
 		pconfig->pdensity = atoi(value);
 	}
+	else if (MATCH("particles", "Q_PR")) {
+		pconfig->q_pr = strdup(value);
+	}
 	else if (MATCH("particles", "FIRST_PARTICLE_NUMBER")) {
 		pconfig->fpnum = atoi(value);
 	}
@@ -662,8 +684,9 @@ int read_configuration(configuration_values *config_out)
 	config.savebin = 0;
 	config.inputfn = "";
 	config.outputfn = "default";
-	config.pmass = 0;
+	config.pmass = "0.";
 	config.pdensity = 1000;
+	config.q_pr = "1.";
 	config.fpnum = 1;
 
 	// Parse configuration file
@@ -788,6 +811,10 @@ int read_configuration(configuration_values *config_out)
 	char outputfile[260] = "";
 	sprintf_s(outputfile, 260, "%s%s", config_out->outputpath, temp);
 	strcpy(config_out->outputpath, 260, outputfile);
+
+	// Set Mie scattering coefficient
+	sscanf(config.q_pr, "%lf", &config_out->q_pr);
+
 	//Set mass of particles
 	//strcpy(temp, sizeof(temp), config.pmass);
 	sscanf(config.pmass, "%lf", &config_out->particle_mass);
@@ -797,11 +824,10 @@ int read_configuration(configuration_values *config_out)
 		config_out->particle_density = (SpiceDouble)config.pdensity;
 
 		//Manipulate sun mass to simulate solar pressure
-		SpiceDouble Qpr, PI, beta;
-		Qpr = 1.0;
+		SpiceDouble PI, beta;
 		PI = 3.1416;
 		config_out->particle_radius = pow((config_out->particle_mass) / ((1.3333) * PI * (config_out->particle_density)), 0.3333); // Unit: [m]!
-		beta = 5.7e-4 * (Qpr / ((config_out->particle_density) * config_out->particle_radius));
+		beta = 5.7e-4 * (config_out->q_pr / ((config_out->particle_density) * config_out->particle_radius));
 		for (j = 0; j < config_out->N_bodys; j++)
 		{
 			if (config_out->body_int[j] == 10)
@@ -812,5 +838,147 @@ int read_configuration(configuration_values *config_out)
 		}
 	}
 
+	return 0;
+}
+
+
+
+int convert_results_into_binary(configuration_values config_out, int particles_count, double *multiplication_factor)
+{
+	printf("\n Converting text output into binary...	");
+	//Create some variables
+	int j, e, c, h, state_count, i, result_array_length=1, particle_header_row, l, g;
+	FILE *output_file;
+	char *next_token = NULL, temp[260];
+	double tempdouble;
+
+	//Allocate beginning of result_array
+	float **result_array;
+	result_array = malloc(1 * sizeof(float *));
+	if (result_array == NULL)
+	{
+		printf("\nerror: could not allocate result_array (OOM)");
+		return 2;
+	}
+	result_array[0] = malloc(7 * sizeof(float));
+	if (result_array[0] == NULL)
+	{
+		printf("\nerror: could not allocate result_array (OOM)");
+		return 2;
+	}
+	//Set file header
+	result_array[0][0] = config_out.first_particle_number;
+	result_array[0][1] = (config_out.first_particle_number + particles_count);
+	result_array[0][2] = (float)config_out.particle_mass;
+	result_array[0][3] = (float)config_out.particle_density;
+	result_array[0][4] = 0;
+	result_array[0][5] = (float)config_out.start_time_save;
+	result_array[0][6] = (float)config_out.final_time;
+
+	//Read in all the particles and save them in result_array
+	for (j = 0; j < particles_count; j++)
+	{
+		state_count = 0;
+		char particle_path[260] = "";
+		sprintf_s(particle_path, 260, "%s_#%d%s", config_out.outputpath, (j + config_out.first_particle_number), ".txt");
+		for (e = 0; e < 3; e++)
+		{
+			fopen_s(&output_file, particle_path, "r");
+			if (output_file == NULL)
+			{
+				SLEEP(100);
+				if (e == 2)
+				{
+					printf("\nerror: could not open .txt file for conversion");
+					return 2;
+				}
+			}
+		}
+		while ((c = fgetc(output_file)) != EOF)
+		{
+			if (c == '\n')
+			{
+				state_count++;
+			}
+		}
+		particle_header_row = result_array_length;
+		result_array_length += state_count + 1;
+		result_array = realloc(result_array, (result_array_length)*sizeof(float *));
+		if (result_array == NULL)
+		{
+			printf("\nerror: could not allocate result_array (OOM)");
+			return 2;
+		}
+		for (i = particle_header_row; i < result_array_length; i++)
+		{
+			result_array[i] = malloc(7 * sizeof(float));
+			if (result_array[i] == NULL)
+			{
+				printf("\nerror: could not allocate result_array (OOM)");
+				return 2;
+			}
+		}
+		for (i = 0; i < 5; i++)
+		{
+			result_array[particle_header_row][i] = 0;
+		}
+		result_array[particle_header_row][5] = (j + config_out.first_particle_number);
+		result_array[particle_header_row][6] = (float)(multiplication_factor[j]);
+		fclose(output_file);
+		for (e = 0; e < 3; e++)
+		{
+			fopen_s(&output_file, particle_path, "r");
+			if (output_file == NULL)
+			{
+				SLEEP(100);
+				if (e == 2)
+				{
+					printf("\nerror: could not open .txt file for conversion");
+					return 2;
+				}
+			}
+		}
+		l = particle_header_row;
+		while (fgets(temp, sizeof(temp), output_file) != NULL)
+		{
+			l++;
+			char* cval = strtok_r(temp, "\t", &next_token);
+			for (g = 0; g < 5; g++)
+			{
+				sscanf(cval, "%lf", &tempdouble);
+				result_array[l][g] = (float)tempdouble;
+				cval = strtok_r(NULL, "\t", &next_token);
+			}
+			sscanf(cval, "%lf", &tempdouble);
+			result_array[l][5] = (float)tempdouble;
+			cval = strtok_r(NULL, "\n", &next_token);
+			sscanf(cval, "%lf", &tempdouble);
+			result_array[l][6] = (float)tempdouble;
+		}
+		fclose(output_file);
+	}
+	//Save result_array as binary file and delete text files
+	FILE *binout;
+	char binary_path[260] = "";
+	sprintf_s(binary_path, 260, "%s.ctwu", config_out.outputpath);
+	fopen_s(&binout, binary_path, "wb");
+	for (h = 0; h < result_array_length; h++)
+	{
+		fwrite(result_array[h], sizeof(float), 7, binout);
+	}
+	fclose(binout);
+	free(result_array);
+	printf("...done.");
+	fcloseall();
+	for (j = 0; j < particles_count; j++)
+	{
+		char particle_path[260] = "";
+		sprintf_s(particle_path, 260, "%s_#%d%s", config_out.outputpath, (j + config_out.first_particle_number), ".txt");
+		if (remove(particle_path) != 0)
+		{
+			printf("\nerror: could not delete .txt file after conversion");
+			return 2;
+		}
+	}
 	return 0;
 }
