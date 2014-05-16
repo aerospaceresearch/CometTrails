@@ -1,7 +1,7 @@
 // Functions called by integration algorithms
 
 /* Calculate the acceleration of a particle based on the position of the body relative to the SSB */
-void calc_accel(configuration_values *config_out, SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel, SpiceDouble *Vel, SpiceDouble PRDconst, SpiceDouble dt)
+void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel, SpiceDouble *Vel, SpiceDouble dt)
 {
 	/* Units:	lSol	[kg*km^2/s^3] = [W*1e6]
 	 *			GM		[km^3/s^2]
@@ -21,7 +21,7 @@ void calc_accel(configuration_values *config_out, SpiceDouble dir_SSB[], SpiceDo
 	accel[1] = 0;
 	accel[2] = 0;
 
-	for (b = 0; b < config_out->N_bodys; b++)
+	for (b = 0; b < config_data->N_bodys; b++)
 	{
 		direct_body[0] = (*body_state)[b][0] + dir_SSB[0];
 		direct_body[1] = (*body_state)[b][1] + dir_SSB[1];
@@ -30,7 +30,7 @@ void calc_accel(configuration_values *config_out, SpiceDouble dir_SSB[], SpiceDo
 		// Calculate GM*r^3
 		absr = sqrt(direct_body[0] * direct_body[0] + direct_body[1] * direct_body[1] + direct_body[2] * direct_body[2]); // abs(distance)
 		r3 = absr*absr*absr; // ~ten times faster than pow((r1^2 + r2^2 + r3^2),1.5)
-		GMr3 = config_out->GM[b] / r3;
+		GMr3 = config_data->GM[b] / r3;
 
 		accel[2] += GMr3 * direct_body[2];
 		accel[0] += GMr3 * direct_body[0];
@@ -39,17 +39,17 @@ void calc_accel(configuration_values *config_out, SpiceDouble dir_SSB[], SpiceDo
 	}
 
 #ifdef __PRD
-	for (b = 0; b < config_out->N_bodys; b++)
+	for (b = 0; b < config_data->N_bodys; b++)
 	{
 		// Sun: Calculate PRD
-		if (config_out->body_int[b] == 10)
+		if (config_data->body_int[b] == 10)
 		{
 			/* 
 			Calculate absolute acceleration due to Poynting-Robertson effect
 			
 			PRDconst = lSol * (particle_radius / 1000 * particle_radius / 1000) / (4. * c2) * sqrt(GM[b]) / particle_mass;
 			*/
-			aPRD = PRDconst / sqrt(absr*absr*absr*absr*absr);
+			aPRD = config_data->prdconst / sqrt(absr*absr*absr*absr*absr);
 
 			/* Calculate velocity intermediate value */
 			iVel[0] = Vel[0] + dt * accel[0];
@@ -80,27 +80,46 @@ int printpdata(FILE *statefile, SpiceDouble *nstate)
 
 
 /* Calculate particle-constant part of PRD */
-SpiceDouble calc_prdc(configuration_values *config_out)
+SpiceDouble calc_pInfo(configuration_values *config_data)
 {
+	if (config_data->particle_mass > 0)
+	{
+		//Manipulate sun mass to simulate solar pressure
+		SpiceDouble PI, beta;
+		PI = 3.1416;
+		config_data->particle_radius = pow((config_data->particle_mass) / ((1.3333) * PI * (config_data->particle_density)), 0.3333); // Unit: [m]!
+		beta = 5.7e-4 * (config_data->q_pr / ((config_data->particle_density) * config_data->particle_radius));
+		for (j = 0; j < config_data->N_bodys; j++)
+		{
+			if (config_data->body_int[j] == 10)
+			{
+				config_data->GM[j] = config_data->GM[j] * (1 - beta);
+				break;
+			}
+		}
+	}
+
 #ifdef __PRD
 	int j;
 	SpiceDouble cp2 = 89875517873.681764; // speed of light squared, Unit: [km^2/s^2]
 	SpiceDouble lSol = 3.846e20; // Unit: [kg*km^2/s^3] - equivalent to 3.846e26 [W]
 	SpiceDouble PRDconst = 0.; // Unit: [km^3.5/s^2]
 
-	for (j = 0; j < config_out->N_bodys; j++)
+	for (j = 0; j < config_data->N_bodys; j++)
 	{
-		if (config_out->body_int[j] == 10)
+		if (config_data->body_int[j] == 10)
 		{
-			PRDconst = lSol * (config_out->particle_radius / 1000 * config_out->particle_radius / 1000) / (4. * cp2) * sqrt(config_out->GM[j]) / config_out->particle_mass;
+			PRDconst = lSol * (config_data->particle_radius / 1000 * config_data->particle_radius / 1000) / (4. * cp2) * sqrt(config_data->GM[j]) / config_data->particle_mass;
 			break;
 		}
 	}
 
-	return PRDconst;
+	config_data->prdconst = PRDconst;
 #else // not __PRD
-	return 0.0;
+	config_data->prdconst = 0.0;
 #endif // __PRD
+
+	return 0;
 }
 
 

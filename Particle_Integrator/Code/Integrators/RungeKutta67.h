@@ -3,11 +3,11 @@
    
    Steps exceeding the maximum allowed error (e_target) will be repeated. */
 
-int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *statefile)
+int RungeKutta67(configuration_values *config_data, SpiceDouble *nstate, FILE *statefile)
 {
 	// Select body position function to use ((*bodyPosFP) for spice, return_SSB for (0,0,0))
 	void (*bodyPosFP)(SpiceInt, SpiceDouble, ConstSpiceChar *, ConstSpiceChar *, SpiceInt, SpiceDouble[3], SpiceDouble *);
-	if (config_out->ssb_centered == 1)
+	if (config_data->ssb_centered == 1)
 	{
 		bodyPosFP = &return_SSB;
 	}
@@ -18,14 +18,14 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 
 	// Create some variables
 	int stepcount = 0, substepcount = 0, j = 0, k = 0, m = 0, zeroEps = 0;
-	SpiceDouble lt, h = 3000.0, hp2, tEps = config_out->e_target, tEps_p = 0.0;
+	SpiceDouble lt, h = 3000.0, hp2, tEps = config_data->e_target, tEps_p = 0.0;
 
 	// Create body arrays and set initial body positions
 	SpiceDouble **(body[10]); // body[0] is t = time[1] - h, body[1] is t = time[1], body[9] is t = time[1] + h
 
 	for (k = 0; k < 10; k++)
 	{
-		body[k] = (SpiceDouble **)malloc(config_out->N_bodys * sizeof(SpiceDouble *));
+		body[k] = (SpiceDouble **)malloc(config_data->N_bodys * sizeof(SpiceDouble *));
 		if (body[k] == NULL)
 		{
 			printf("\nerror: could not allocate body state array (OOM)");
@@ -33,7 +33,7 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 		}
 	}
 
-	for (j = 0; j < config_out->N_bodys; j++)
+	for (j = 0; j < config_data->N_bodys; j++)
 	{
 		for (k = 0; k < 10; k++)
 		{
@@ -48,21 +48,21 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 #pragma omp critical(SPICE)
 		{
 			// Critical section is only executed on one thread at a time (spice is not threadsafe)
-			(*bodyPosFP)(config_out->body_int[j], nstate[6], "ECLIPJ2000", "NONE", 0, body[8][j], &lt);
+			(*bodyPosFP)(config_data->body_int[j], nstate[6], "ECLIPJ2000", "NONE", 0, body[8][j], &lt);
 		}
 	}
 
 	// Create body interpolation coefficients
 	SpiceDouble **bod_a, **bod_b, **bod_c;
-	bod_a = malloc(config_out->N_bodys * sizeof(SpiceDouble *));
-	bod_b = malloc(config_out->N_bodys * sizeof(SpiceDouble *));
-	bod_c = malloc(config_out->N_bodys * sizeof(SpiceDouble *));
+	bod_a = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
+	bod_b = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
+	bod_c = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
 	if (bod_a == NULL || bod_b == NULL || bod_c == NULL)
 	{
 		printf("\nerror: could not allocate body coefficient array (OOM)");
 		return 1;
 	}
-	for (j = 0; j < config_out->N_bodys; j++)
+	for (j = 0; j < config_data->N_bodys; j++)
 	{
 		bod_a[j] = malloc(3 * sizeof(SpiceDouble));
 		bod_b[j] = malloc(3 * sizeof(SpiceDouble));
@@ -78,17 +78,14 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 	SpiceDouble initPos[3], initVel[3], dir_SSB[3], time[9], dtime[9];
 	SpiceDouble f[9][3];
 
-	// Constant part of PRD
-	SpiceDouble PRDconst = calc_prdc(config_out);
-
 	dtime[0] = 0;
 
 #ifdef __WTIMESTEP
-	SpiceDouble hmin = config_out->final_time - nstate[6], hmax = 0.0, maxEps = 0;
+	SpiceDouble hmin = config_data->final_time - nstate[6], hmax = 0.0, maxEps = 0;
 #endif
 
 	// Integrate
-	while (nstate[6] < config_out->final_time)
+	while (nstate[6] < config_data->final_time)
 	{
 		// Set initial state for this step
 		initPos[0] = nstate[0];
@@ -100,7 +97,7 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 
 		time[1] = nstate[6];
 
-		for (j = 0; j < config_out->N_bodys; j++)
+		for (j = 0; j < config_data->N_bodys; j++)
 		{
 			// Save previous body state
 			body[0][j][0] = body[1][j][0];
@@ -117,7 +114,7 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 		dir_SSB[0] = -(initPos[0]);
 		dir_SSB[1] = -(initPos[1]);
 		dir_SSB[2] = -(initPos[2]);
-		calc_accel(config_out, dir_SSB, &body[1], f[0], initVel, PRDconst, 0.0);
+		calc_accel(config_data, dir_SSB, &body[1], f[0], initVel, 0.0);
 
 		// dtime: time difference compared to time[0]
 		dtime[1] = time[1] - time[0];
@@ -125,9 +122,9 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 		do
 		{
 			// Set dynamic step size
-			if (tEps > (config_out->e_target / 22.)) // do not increase the step size by more than a factor of 1.4 at a time
+			if (tEps > (config_data->e_target / 22.)) // do not increase the step size by more than a factor of 1.4 at a time
 			{
-				h = 0.9 * h * pow(config_out->e_target / tEps, 1. / 7);
+				h = 0.9 * h * pow(config_data->e_target / tEps, 1. / 7);
 			}
 			else
 			{
@@ -150,13 +147,13 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 			}
 
 			// Get body positions
-			for (j = 0; j < config_out->N_bodys; j++)
+			for (j = 0; j < config_data->N_bodys; j++)
 			{
 				if (stepcount > 1) // not during the first two steps
 				{
 #pragma omp critical(SPICE)
 					{
-						(*bodyPosFP)(config_out->body_int[j], time[8], "ECLIPJ2000", "NONE", 0, body[8][j], &lt);
+						(*bodyPosFP)(config_data->body_int[j], time[8], "ECLIPJ2000", "NONE", 0, body[8][j], &lt);
 					}
 
 					// solving x = a + bt + ct^2 for quadratic interpolation of body positions
@@ -183,7 +180,7 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 						// Critical section is only executed on one thread at a time (spice is not threadsafe)
 						for (m = 2; m < 8; m++)
 						{
-							(*bodyPosFP)(config_out->body_int[j], time[m], "ECLIPJ2000", "NONE", 0, body[m][j], &lt);
+							(*bodyPosFP)(config_data->body_int[j], time[m], "ECLIPJ2000", "NONE", 0, body[m][j], &lt);
 						}
 					}
 				}
@@ -198,25 +195,25 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 			dir_SSB[0] = -(initPos[0] + h / 10 * initVel[0] + 1. / 200 * hp2 * f[0][0]);
 			dir_SSB[1] = -(initPos[1] + h / 10 * initVel[1] + 1. / 200 * hp2 * f[0][1]);
 			dir_SSB[2] = -(initPos[2] + h / 10 * initVel[2] + 1. / 200 * hp2 * f[0][2]);
-			calc_accel(config_out, dir_SSB, &body[2], f[1], initVel, PRDconst, dtime[2] - dtime[1]);
+			calc_accel(config_data, dir_SSB, &body[2], f[1], initVel, dtime[2] - dtime[1]);
 
 			// F3
 			dir_SSB[0] = -(initPos[0] + h / 5 * initVel[0] + hp2 / 150 * (f[0][0] + 2 * f[1][0]));
 			dir_SSB[1] = -(initPos[1] + h / 5 * initVel[1] + hp2 / 150 * (f[0][1] + 2 * f[1][1]));
 			dir_SSB[2] = -(initPos[2] + h / 5 * initVel[2] + hp2 / 150 * (f[0][2] + 2 * f[1][2]));
-			calc_accel(config_out, dir_SSB, &body[3], f[2], initVel, PRDconst, dtime[3] - dtime[1]);
+			calc_accel(config_data, dir_SSB, &body[3], f[2], initVel, dtime[3] - dtime[1]);
 
 			// F4
 			dir_SSB[0] = -(initPos[0] + 3. * h / 8 * initVel[0] + hp2 * (171. / 8192 * f[0][0] + 45. / 4096 * f[1][0] + 315. / 8192 * f[2][0]));
 			dir_SSB[1] = -(initPos[1] + 3. * h / 8 * initVel[1] + hp2 * (171. / 8192 * f[0][1] + 45. / 4096 * f[1][1] + 315. / 8192 * f[2][1]));
 			dir_SSB[2] = -(initPos[2] + 3. * h / 8 * initVel[2] + hp2 * (171. / 8192 * f[0][2] + 45. / 4096 * f[1][2] + 315. / 8192 * f[2][2]));
-			calc_accel(config_out, dir_SSB, &body[4], f[3], initVel, PRDconst, dtime[4] - dtime[1]);
+			calc_accel(config_data, dir_SSB, &body[4], f[3], initVel, dtime[4] - dtime[1]);
 
 			// F5
 			dir_SSB[0] = -(initPos[0] + h / 2 * initVel[0] + hp2 * (5. / 288 * f[0][0] + 25. / 528 * f[1][0] + 25. / 672 * f[2][0] + 16. / 693 * f[3][0]));
 			dir_SSB[1] = -(initPos[1] + h / 2 * initVel[1] + hp2 * (5. / 288 * f[0][1] + 25. / 528 * f[1][1] + 25. / 672 * f[2][1] + 16. / 693 * f[3][1]));
 			dir_SSB[2] = -(initPos[2] + h / 2 * initVel[2] + hp2 * (5. / 288 * f[0][2] + 25. / 528 * f[1][2] + 25. / 672 * f[2][2] + 16. / 693 * f[3][2]));
-			calc_accel(config_out, dir_SSB, &body[5], f[4], initVel, PRDconst, dtime[5] - dtime[1]);
+			calc_accel(config_data, dir_SSB, &body[5], f[4], initVel, dtime[5] - dtime[1]);
 
 			// F6
 			dir_SSB[0] = -(initPos[0] + (7. - sqrt(21)) * h / 14 * initVel[0] + hp2 * ((1003. - 205. * sqrt(21)) / 12348 * f[0][0] - 25. * (751. - 173. * sqrt(21)) / 90552 * f[1][0]
@@ -225,7 +222,7 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 					+ 25. * (624. - 137. * sqrt(21)) / 43218 * f[2][1] - 128. * (361. - 79. * sqrt(21)) / 237699 * f[3][1] + (3411. - 745. * sqrt(21)) / 24696 * f[4][1]));
 			dir_SSB[2] = -(initPos[2] + (7. - sqrt(21)) * h / 14 * initVel[2] + hp2 * ((1003. - 205. * sqrt(21)) / 12348 * f[0][2] - 25. * (751. - 173. * sqrt(21)) / 90552 * f[1][2]
 					+ 25. * (624. - 137. * sqrt(21)) / 43218 * f[2][2] - 128. * (361. - 79. * sqrt(21)) / 237699 * f[3][2] + (3411. - 745. * sqrt(21)) / 24696 * f[4][2]));
-			calc_accel(config_out, dir_SSB, &body[6], f[5], initVel, PRDconst, dtime[6] - dtime[1]);
+			calc_accel(config_data, dir_SSB, &body[6], f[5], initVel, dtime[6] - dtime[1]);
 
 			// F7
 			dir_SSB[0] = -(initPos[0] + (7. + sqrt(21)) * h / 14 * initVel[0] + hp2 * ((793. + 187. * sqrt(21)) / 12348 * f[0][0] - 25. * (331. + 113. * sqrt(21)) / 90552 * f[1][0]
@@ -237,7 +234,7 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 			dir_SSB[2] = -(initPos[2] + (7. + sqrt(21)) * h / 14 * initVel[2] + hp2 * ((793. + 187. * sqrt(21)) / 12348 * f[0][2] - 25. * (331. + 113. * sqrt(21)) / 90552 * f[1][2]
 					+ 25. * (1044. + 247. * sqrt(21)) / 43218 * f[2][2] - 128. * (14885. + 3779. * sqrt(21)) / 9745659 * f[3][2] + (3327. + 797. * sqrt(21)) / 24696 * f[4][2]
 					+ (581. + 127. * sqrt(21)) / 1722 * f[5][2]));
-			calc_accel(config_out, dir_SSB, &body[7], f[6], initVel, PRDconst, dtime[7] - dtime[1]);
+			calc_accel(config_data, dir_SSB, &body[7], f[6], initVel, dtime[7] - dtime[1]);
 
 			// F8
 			dir_SSB[0] = -(initPos[0] + h * initVel[0] + hp2 * ((-1.) * (157. - 3. * sqrt(21)) / 378 * f[0][0] + 25. * (143. - 10. * sqrt(21)) / 2772 * f[1][0]
@@ -249,14 +246,14 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 			dir_SSB[2] = -(initPos[2] + h * initVel[2] + hp2 * ((-1.) * (157. - 3. * sqrt(21)) / 378 * f[0][2] + 25. * (143. - 10. * sqrt(21)) / 2772 * f[1][2]
 					- 25. * (876. + 55. * sqrt(21)) / 3969 * f[2][2] + 1280. * (913. + 18. * sqrt(21)) / 596673 * f[3][2] - (1353. + 26. * sqrt(21)) / 2268 * f[4][2]
 					+ 7. * (1777. + 377. * sqrt(21)) / 4428 * f[5][2] + 7. * (5. - sqrt(21)) / 36 * f[6][2]));
-			calc_accel(config_out, dir_SSB, &body[8], f[7], initVel, PRDconst, dtime[8] - dtime[1]);
+			calc_accel(config_data, dir_SSB, &body[8], f[7], initVel, dtime[8] - dtime[1]);
 			//printf("\nf8 - dir_SSB[0]: %.16le", dir_SSB[0]);
 
 			// F9 - only used for error calculation
 			dir_SSB[0] = -(initPos[0] + h * initVel[0] + hp2 * (1. / 20 * f[0][0] + 8. / 45 * f[4][0] + 7. * (7. + sqrt(21)) / 360 * f[5][0] + 7. * (7. - sqrt(21)) / 360 * f[6][0]));
 			dir_SSB[1] = -(initPos[1] + h * initVel[1] + hp2 * (1. / 20 * f[0][1] + 8. / 45 * f[4][1] + 7. * (7. + sqrt(21)) / 360 * f[5][1] + 7. * (7. - sqrt(21)) / 360 * f[6][1]));
 			dir_SSB[2] = -(initPos[2] + h * initVel[2] + hp2 * (1. / 20 * f[0][2] + 8. / 45 * f[4][2] + 7. * (7. + sqrt(21)) / 360 * f[5][2] + 7. * (7. - sqrt(21)) / 360 * f[6][2]));
-			calc_accel(config_out, dir_SSB, &body[9], f[8], initVel, PRDconst, dtime[8] - dtime[1]);
+			calc_accel(config_data, dir_SSB, &body[9], f[8], initVel, dtime[8] - dtime[1]);
 			//printf("\nf9 - dir_SSB[0]: %.16le", dir_SSB[0]);
 
 			// Absolute error (2-norm)
@@ -270,7 +267,7 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 			tEps = hp2 / 20 * sqrt(tEps);
 
 			substepcount++;
-		} while (tEps > config_out->e_target); // while the error is too big.
+		} while (tEps > config_data->e_target); // while the error is too big.
 
 #ifdef __WTIMESTEP
 		if (tEps > maxEps)
@@ -314,10 +311,10 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 		stepcount++;
 
 		// Save nth state
-		if ((stepcount % config_out->n) == 0)
+		if ((stepcount % config_data->n) == 0)
 		{
 			//printf("\n tEps = %.12le", tEps);
-			if (nstate[6] > config_out->start_time_save)
+			if (nstate[6] > config_data->start_time_save)
 			{
 				printpdata(statefile, nstate);
 			}
@@ -333,7 +330,7 @@ int RungeKutta67(configuration_values *config_out, SpiceDouble *nstate, FILE *st
 	// Deallocate body array
 	for (k = 0; k < 10; k++)
 	{
-		for (j = 0; j < config_out->N_bodys; j++)
+		for (j = 0; j < config_data->N_bodys; j++)
 		{
 			free(body[k][j]);
 		}

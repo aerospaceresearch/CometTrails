@@ -20,6 +20,7 @@ typedef struct
 	SpiceDouble particle_density;
 	SpiceDouble particle_radius;
 	SpiceDouble q_pr;
+	SpiceDouble prdconst;
 	// Algorithm-specific
 	SpiceDouble dv_step;
 	SpiceDouble e_target;
