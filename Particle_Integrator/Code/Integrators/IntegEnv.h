@@ -84,41 +84,44 @@ SpiceDouble calc_pInfo(configuration_values *config_data)
 {
 	int j;
 
-	if (config_data->particle_mass > 0)
+	if (config_data->particle_mass > 0.)
 	{
-		//Manipulate sun mass to simulate solar pressure
-		SpiceDouble PI, beta;
-		PI = 3.1416;
-		config_data->particle_radius = pow((config_data->particle_mass) / ((1.3333) * PI * (config_data->particle_density)), 0.3333); // Unit: [m]!
-		beta = 5.7e-4 * (config_data->q_pr / ((config_data->particle_density) * config_data->particle_radius));
+		// Manipulate sun mass to simulate solar pressure
+		SpiceDouble PI, c;
+		PI = 3.1415926535897932;
+		c = 299792458.;						// [m/s]
+		config_data->solar_lum = 3.846e26;	// [W]
+
+		config_data->particle_radius = pow((config_data->particle_mass) / ((1.3333) * PI * (config_data->particle_density)), 0.3333);
+
 		for (j = 0; j < config_data->N_bodys; j++)
 		{
 			if (config_data->body_int[j] == 10)
 			{
-				config_data->GM[j] = config_data->GM[j] * (1 - beta);
+				config_data->beta = 3. * (config_data->solar_lum) * config_data->q_pr / (16. * PI * c * (config_data->GM[j] * 1.e9) * config_data->particle_density * config_data->particle_radius);
+
+				config_data->GM[j] = config_data->GM[j] * (1 - config_data->beta);
 				break;
 			}
 		}
-	}
 
 #ifdef __PRD
-	SpiceDouble cp2 = 89875517873.681764; // speed of light squared, Unit: [km^2/s^2]
-	SpiceDouble lSol = 3.846e20; // Unit: [kg*km^2/s^3] - equivalent to 3.846e26 [W]
-	SpiceDouble PRDconst = 0.; // Unit: [km^3.5/s^2]
+		SpiceDouble cp2 = c * c * 1.e-6;		// [km^2/s^2]: speed of light squared
+		SpiceDouble lSol = 3.846e20;			// [kg*km^2/s^3]: equivalent of 3.846e26 [W]
 
-	for (j = 0; j < config_data->N_bodys; j++)
-	{
-		if (config_data->body_int[j] == 10)
+		for (j = 0; j < config_data->N_bodys; j++)
 		{
-			PRDconst = lSol * (config_data->particle_radius / 1000 * config_data->particle_radius / 1000) / (4. * cp2) * sqrt(config_data->GM[j]) / config_data->particle_mass;
-			break;
+			if (config_data->body_int[j] == 10)
+			{
+				config_data->prdconst = lSol * (config_data->particle_radius / 1000 * config_data->particle_radius / 1000) / (4. * cp2) * sqrt(config_data->GM[j]) / config_data->particle_mass;
+				break;
+			}
 		}
-	}
 
-	config_data->prdconst = PRDconst;
 #else // not __PRD
-	config_data->prdconst = 0.0;
+		config_data->prdconst = 0.0;
 #endif // __PRD
+	}
 
 	return 0;
 }

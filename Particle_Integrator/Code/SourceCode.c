@@ -79,14 +79,15 @@ int main(void)
 	sprintf_s(config_data.inputfpath, 260, "");
 	sprintf_s(config_data.outputpath, 260, "OUTPUT" OS_SEP);
 	config_data.number_of_threads = 0;
-	config_data.final_time = 0;
-	config_data.start_time_save = 0;
-	config_data.dv_step = 0;
-	config_data.e_target = 0;
+	config_data.final_time = 0.;
+	config_data.start_time_save = 0.;
+	config_data.dv_step = 0.;
+	config_data.e_target = 0.;
 	config_data.first_particle_number = 0;
-	config_data.particle_mass = 0;
-	config_data.particle_density = 0;
-	config_data.particle_radius = 0;
+	config_data.particle_mass = 0.;
+	config_data.particle_density = 0.;
+	config_data.particle_radius = 0.;
+	config_data.prdconst = 0.;
 	config_data.save_as_binary = 0;
 	
 	//Load Spice kernels
@@ -199,14 +200,17 @@ int main(void)
 		printf("\n dv_step		= %le", config_data.dv_step);
 	else if (config_data.algorithm == 2)
 		printf("\n e_target		= %le", config_data.e_target);
-	if (config_data.particle_mass > 0)
-		printf("\n particle_mass		= %le", config_data.particle_mass);
-	printf("\n particle_density	= %le", config_data.particle_density);
-	printf("\n particle_radius	= %le", config_data.particle_radius);
+	if (config_data.particle_mass > 0.)
+	{
+		printf("\n particle_mass   	= %le", config_data.particle_mass);
+		printf("\n particle_density	= %le", config_data.particle_density);
+		printf("\n particle_radius	= %.12le", config_data.particle_radius);
+		printf("\n beta           	= %.12le", config_data.beta);
+	}
 	for (j = 0; j < config_data.N_bodys; j++)
 	{
 		if (config_data.body_int[j] == 10)
-			printf("\n solar GM       	= %le", config_data.GM[j]);
+			printf("\n solar GM       	= %.12le", config_data.GM[j]);
 	}
 	if (config_data.first_particle_number != 1)
 		printf("\n first_particle_number	= %d", config_data.first_particle_number);
@@ -819,7 +823,7 @@ int read_configuration(configuration_values *config_data)
 
 	if (mkdir(config_data->outputpath, 0777))
 	{
-		printf(" ...skip mkdir... ");
+		printf("...skip mkdir... ");
 	}
 
 	char outputfile[260] = "";
