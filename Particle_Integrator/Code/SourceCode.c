@@ -59,7 +59,7 @@
 bool particle_already_processed(int p, char already_done_path[]);
 bool particle_incomplete(char outputpath[], SpiceDouble *nstate);
 int read_configuration(configuration_values *config_out);
-int convert_results_into_binary(configuration_values config_out, int particles_count, double *multiplication_factor);
+int convert_results_into_binary(configuration_values config_out, int particles_count, double *multiplication_factor, char already_done_path[]);
 
 
 //Main Program
@@ -448,7 +448,7 @@ int main(void)
 		{
 			multiplication_factor[j] = particles_start[j][6];
 		}
-		if (convert_results_into_binary(config_out, particles_count, multiplication_factor) != 0)
+		if (convert_results_into_binary(config_out, particles_count, multiplication_factor, already_done_path) != 0)
 		{
 			printf("\nerror: could not convert to binary");
 			return 2;	
@@ -834,7 +834,7 @@ int read_configuration(configuration_values *config_out)
 	return 0;
 }
 
-int convert_results_into_binary(configuration_values config_out, int particles_count, double *multiplication_factor)
+int convert_results_into_binary(configuration_values config_out, int particles_count, double *multiplication_factor, char already_done_path[])
 {
 	printf("\n Converting text output into binary...	");
 	//Create some variables
@@ -880,9 +880,13 @@ int convert_results_into_binary(configuration_values config_out, int particles_c
 				SLEEP(100);
 				if (e == 2)
 				{
-					printf("\nerror: could not open .txt file for conversion");
+					printf("\nerror: could not open .txt file particle #%d for conversion", j + config_out.first_particle_number);
 					return 2;
 				}
+			}
+			else
+			{
+				break;
 			}
 		}
 		while ((c = fgetc(output_file)) != EOF)
@@ -909,26 +913,14 @@ int convert_results_into_binary(configuration_values config_out, int particles_c
 				return 2;
 			}
 		}
-		for (i = 0; i < 5; i++)
+		for (i = 0; i < 4; i++)
 		{
 			result_array[particle_header_row][i] = 0;
 		}
-		result_array[particle_header_row][5] = (j + config_out.first_particle_number);
-		result_array[particle_header_row][6] = (float)(multiplication_factor[j]);
-		fclose(output_file);
-		for (e = 0; e < 3; e++)
-		{
-			fopen_s(&output_file, particle_path, "r");
-			if (output_file == NULL)
-			{
-				SLEEP(100);
-				if (e == 2)
-				{
-					printf("\nerror: could not open .txt file for conversion");
-					return 2;
-				}
-			}
-		}
+		result_array[particle_header_row][4] = (j + config_out.first_particle_number);
+		result_array[particle_header_row][5] = (float)(multiplication_factor[j]);
+		result_array[particle_header_row][6] = 0;
+		rewind(output_file);
 		l = particle_header_row;
 		while (fgets(temp, sizeof(temp), output_file) != NULL)
 		{
@@ -971,6 +963,7 @@ int convert_results_into_binary(configuration_values config_out, int particles_c
 	fcloseall();
 	for (j = 0; j < particles_count; j++)
 	{
+		remove(already_done_path);
 		char particle_path[260] = "";
 		sprintf_s(particle_path, 260, "%s_#%d%s", config_out.outputpath, (j + config_out.first_particle_number), ".txt");
 		if (remove(particle_path) != 0)
