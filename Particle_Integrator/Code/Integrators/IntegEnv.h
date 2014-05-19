@@ -1,5 +1,12 @@
 // Functions called by integration algorithms
 
+// Solar wind drag factor
+#ifdef __SWD
+#define SWF 1.35
+#else
+#define SWDF 1.
+#endif
+
 /* Calculate the acceleration of a particle based on the position of the body relative to the SSB */
 void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel, SpiceDouble *Vel, SpiceDouble dt)
 {
@@ -53,10 +60,10 @@ void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceD
 
 			// add radiation pressure acceleration and Poynting-Robertson drag acceleration
 			GM_r2 = config_data->betaGM / (absr * absr);
-
-			accel[0] += GM_r2 * ((1. - rp / c) * Sn[0] - iVel[0] / c);
-			accel[1] += GM_r2 * ((1. - rp / c) * Sn[1] - iVel[1] / c);
-			accel[2] += GM_r2 * ((1. - rp / c) * Sn[2] - iVel[2] / c);
+			
+			accel[0] += GM_r2 * ((1. - SWDF * rp / c) * Sn[0] - SWDF * iVel[0] / c);
+			accel[1] += GM_r2 * ((1. - SWDF * rp / c) * Sn[1] - SWDF * iVel[1] / c);
+			accel[2] += GM_r2 * ((1. - SWDF * rp / c) * Sn[2] - SWDF * iVel[2] / c);
 		}
 	}
 }
