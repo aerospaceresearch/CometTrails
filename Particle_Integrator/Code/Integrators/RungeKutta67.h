@@ -18,7 +18,11 @@ int RungeKutta67(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 
 	// Create some variables
 	int stepcount = 0, substepcount = 0, j = 0, k = 0, m = 0, zeroEps = 0;
-	SpiceDouble lt, h = 3000.0, hp2, tEps = config_data->e_target, tEps_p = 0.0;
+	SpiceDouble lt						// return value of spkezp_c that is not used
+		, h = 10000.0					// [s] initial step size
+		, hp2							// [s^2] h squared
+		, tEps = config_data->e_target	// [km] error allowed per step
+		, tEps_p = 0.0;					// [km] temporary storage of partial error per space dimension
 
 	// Create body arrays and set initial body positions
 	SpiceDouble **(body[10]); // body[0] is t = time[1] - h, body[1] is t = time[1], body[9] is t = time[1] + h

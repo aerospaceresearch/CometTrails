@@ -15,7 +15,9 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 
 	//Create some variables
 	int j, i = 0;
-	SpiceDouble lt, dt, dt2;
+	SpiceDouble lt		// return value of spkezp_c that is not used
+		, dt			// [s] time step
+		, dt2;			// [s] dt/2
 
 	//Create body arrays and set initial body positions
 	SpiceDouble **body_pre, **body_mid, **body_end;
