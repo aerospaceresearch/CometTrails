@@ -28,7 +28,7 @@ int RungeKutta67(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		body[k] = (SpiceDouble **)malloc(config_data->N_bodys * sizeof(SpiceDouble *));
 		if (body[k] == NULL)
 		{
-			printf("\nerror: could not allocate body state array (OOM)");
+			printf("\n\nerror: could not allocate body state array (OOM)");
 			return 1;
 		}
 	}
@@ -41,7 +41,7 @@ int RungeKutta67(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 
 			if (body[k][j] == NULL)
 			{
-				printf("\nerror: could not allocate body state array (OOM)");
+				printf("\n\nerror: could not allocate body state array (OOM)");
 				return 1;
 			}
 		}
@@ -59,7 +59,7 @@ int RungeKutta67(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 	bod_c = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
 	if (bod_a == NULL || bod_b == NULL || bod_c == NULL)
 	{
-		printf("\nerror: could not allocate body coefficient array (OOM)");
+		printf("\n\nerror: could not allocate body coefficient array (OOM)");
 		return 1;
 	}
 	for (j = 0; j < config_data->N_bodys; j++)
@@ -69,7 +69,7 @@ int RungeKutta67(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		bod_c[j] = malloc(3 * sizeof(SpiceDouble));
 		if (bod_a[j] == NULL || bod_b[j] == NULL || bod_c[j] == NULL)
 		{
-			printf("\nerror: could not allocate body coefficient array (OOM)");
+			printf("\n\nerror: could not allocate body coefficient array (OOM)");
 			return 1;
 		}
 	}

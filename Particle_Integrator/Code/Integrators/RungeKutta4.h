@@ -24,7 +24,7 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 	body_end = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
 	if (body_pre == NULL || body_mid == NULL || body_end == NULL)
 	{
-		printf("\nerror: could not allocate body state array (OOM)");
+		printf("\n\nerror: could not allocate body state array (OOM)");
 		return 1;
 	}
 	for (j = 0; j < config_data->N_bodys; j++)
@@ -34,7 +34,7 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 		body_end[j] = malloc(3 * sizeof(SpiceDouble));
 		if (body_pre[j] == NULL || body_mid[j] == NULL || body_end[j] == NULL)
 		{
-			printf("\nerror: could not allocate body state array (OOM)");
+			printf("\n\nerror: could not allocate body state array (OOM)");
 			return 1;
 		}
 #pragma omp critical(SPICE)

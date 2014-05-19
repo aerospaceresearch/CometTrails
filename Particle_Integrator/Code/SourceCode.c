@@ -332,13 +332,18 @@ int main(void)
 						if (e == 2)
 						{
 							err = 1;
-							printf("\nerror: could not create initial output file");
+							printf("\n\nerror: could not create initial output file");
 							break;
 						}
 					}
 					else
 					{
-						printpdata(init, nstate);
+						if (printpdata(init, nstate))
+						{
+							err = 1;
+							printf("\n\nerror: initial output is NAN.");
+							break;
+						}
 						fclose(init);
 						break;
 					}
@@ -351,7 +356,7 @@ int main(void)
 			fopen_s(&statefile, particle_path, "a");
 			if (statefile == NULL)
 			{
-				printf("\nerror: could not write to output file");
+				printf("\n\nerror: could not write to output file");
 				err = 1;
 			}
 
@@ -368,7 +373,7 @@ int main(void)
 					break;
 				default:
 					err = 1;
-					printf("\nerror: unknown integration algorithm: %d", config_data.algorithm);
+					printf("\n\nerror: unknown integration algorithm: %d", config_data.algorithm);
 				}
 				fclose(statefile);
 			}
@@ -388,7 +393,7 @@ int main(void)
 						if (e == 2)
 						{
 							err = 1;
-							printf("\nerror: could not write to processed_particles.txt");
+							printf("\n\nerror: could not write to processed_particles.txt");
 							break;
 						}
 					}
@@ -411,7 +416,7 @@ int main(void)
 						if (e == 2)
 						{
 							//err = 1;
-							printf("\nerror: could not write to progress.txt	(non-relevant)");
+							printf("\n\nerror: could not write to progress.txt	(non-relevant)");
 							break;
 						}
 					}
@@ -456,7 +461,7 @@ int main(void)
 		multiplication_factor = malloc(particles_count * sizeof(double));
 		if (multiplication_factor == NULL)
 		{
-			printf("\nerror: could not allocate multiplication_factor array (OOM)");
+			printf("\n\nerror: could not allocate multiplication_factor array (OOM)");
 			return 2;
 		}
 		for (j = 0; j < particles_count; j++)
@@ -465,7 +470,7 @@ int main(void)
 		}
 		if (convert_results_into_binary(config_data, particles_count, multiplication_factor) != 0)
 		{
-			printf("\nerror: could not convert to binary");
+			printf("\n\nerror: could not convert to binary");
 			return 2;	
 		}
 	}
@@ -534,7 +539,7 @@ bool particle_incomplete(char particle_path[], SpiceDouble *nstate)
 			fopen_s(&tempfile, "temp.txt", "w");
 			if (tempfile == NULL)
 			{
-				printf("\nerror: could not create tempfile; particle restarted");
+				printf("\n\nerror: could not create tempfile; particle restarted");
 				err = 1;
 			}
 			else
@@ -578,7 +583,7 @@ bool particle_incomplete(char particle_path[], SpiceDouble *nstate)
 					fopen_s(&tempfile, "temp.txt", "r");
 					if (tempfile == NULL)
 					{
-						printf("\nerror: could not create tempfile; particle restarted");
+						printf("\n\nerror: could not create tempfile; particle restarted");
 						err = 1;
 					}
 					else
@@ -586,7 +591,7 @@ bool particle_incomplete(char particle_path[], SpiceDouble *nstate)
 						fopen_s(&check, particle_path, "w");
 						if (check == NULL)
 						{
-							printf("\nerror: could not read incomplete outputfile; particle restarted");
+							printf("\n\nerror: could not read incomplete outputfile; particle restarted");
 							err = 1;
 						}
 						else
@@ -859,13 +864,13 @@ int convert_results_into_binary(configuration_values config_data, int particles_
 	result_array = malloc(1 * sizeof(float *));
 	if (result_array == NULL)
 	{
-		printf("\nerror: could not allocate result_array (OOM)");
+		printf("\n\nerror: could not allocate result_array (OOM)");
 		return 2;
 	}
 	result_array[0] = malloc(7 * sizeof(float));
 	if (result_array[0] == NULL)
 	{
-		printf("\nerror: could not allocate result_array (OOM)");
+		printf("\n\nerror: could not allocate result_array (OOM)");
 		return 2;
 	}
 	//Set file header
@@ -891,7 +896,7 @@ int convert_results_into_binary(configuration_values config_data, int particles_
 				SLEEP(100);
 				if (e == 2)
 				{
-					printf("\nerror: could not open .txt file for conversion");
+					printf("\n\nerror: could not open .txt file for conversion");
 					return 2;
 				}
 			}
@@ -908,7 +913,7 @@ int convert_results_into_binary(configuration_values config_data, int particles_
 		result_array = realloc(result_array, (result_array_length)*sizeof(float *));
 		if (result_array == NULL)
 		{
-			printf("\nerror: could not allocate result_array (OOM)");
+			printf("\n\nerror: could not allocate result_array (OOM)");
 			return 2;
 		}
 		for (i = particle_header_row; i < result_array_length; i++)
@@ -916,7 +921,7 @@ int convert_results_into_binary(configuration_values config_data, int particles_
 			result_array[i] = malloc(7 * sizeof(float));
 			if (result_array[i] == NULL)
 			{
-				printf("\nerror: could not allocate result_array (OOM)");
+				printf("\n\nerror: could not allocate result_array (OOM)");
 				return 2;
 			}
 		}
@@ -935,7 +940,7 @@ int convert_results_into_binary(configuration_values config_data, int particles_
 				SLEEP(100);
 				if (e == 2)
 				{
-					printf("\nerror: could not open .txt file for conversion");
+					printf("\n\nerror: could not open .txt file for conversion");
 					return 2;
 				}
 			}
@@ -978,7 +983,7 @@ int convert_results_into_binary(configuration_values config_data, int particles_
 		sprintf_s(particle_path, 260, "%s_#%d%s", config_data.outputpath, (j + config_data.first_particle_number), ".txt");
 		if (remove(particle_path) != 0)
 		{
-			printf("\nerror: could not delete .txt file after conversion");
+			printf("\n\nerror: could not delete .txt file after conversion");
 			return 2;
 		}
 	}

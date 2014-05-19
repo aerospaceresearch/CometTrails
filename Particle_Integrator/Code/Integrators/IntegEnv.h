@@ -66,7 +66,15 @@ void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceD
 /* Print the state vector (x,y,z,vx,vy,vz,t) to the given file */
 int printpdata(FILE *statefile, SpiceDouble *nstate)
 {
-	fprintf(statefile, "%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\n", (nstate)[0], (nstate)[1], (nstate)[2], (nstate)[3], (nstate)[4], (nstate)[5], (nstate)[6]);
+	if (isnan(nstate[0]) || isnan(nstate[1]) || isnan(nstate[2]) || isnan(nstate[3]) || isnan(nstate[4]) || isnan(nstate[5]) || isnan(nstate[6]))
+	{
+		printf("\n\nerror: printing state to file failed, result is not a number. This value will be skipped.");
+		return 1;
+	}
+	else
+	{
+		fprintf(statefile, "%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\n", (nstate)[0], (nstate)[1], (nstate)[2], (nstate)[3], (nstate)[4], (nstate)[5], (nstate)[6]);
+	}
 
 	return 0;
 }
