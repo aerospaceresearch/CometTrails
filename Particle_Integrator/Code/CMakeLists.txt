@@ -22,7 +22,10 @@ configure_file (
 
 # EXECUTABLE
 
-add_executable(PIntegrator SourceCode.c)
+add_executable(
+	PIntegrator SourceCode.c
+	resources/pintegrator.rc
+)
 
 
 # OPTIONS
@@ -31,12 +34,15 @@ option (WTIMING
 	"Measure computing duration" ON)
 option (WSTEPINFO
 	"Print time step extremes and number of steps" OFF)
+option (ENDONTIME
+	"Last step ends precisely on given end time" OFF)
 
 
 # INCLUDE
 
 include_directories(${PROJECT_BINARY_DIR}) # PIConfig.h
 
+include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/Inih)
 include_directories(${PROJECT_SOURCE_DIR}/Integrators)
 include_directories(${PROJECT_SOURCE_DIR}/cspice/include)
@@ -56,6 +62,10 @@ if (WSTEPINFO)
 	add_definitions(-D__WTIMESTEP)
 	message("TIME STEP EXTREMES OUTPUT ACTIVE")
 endif (WSTEPINFO)
+if (ENDONTIME)
+	add_definitions(-D__ENDONTIME)
+	message("ENDONTIME ACTIVE")
+endif (ENDONTIME)
 
 
 # LIBRARIES
