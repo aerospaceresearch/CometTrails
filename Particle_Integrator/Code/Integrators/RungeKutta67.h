@@ -143,7 +143,7 @@ int RungeKutta67(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 			}
 #endif // __ENDONTIME
 
-			// calculate times
+			// Calculate times
 			dtime[2] = dtime[1] + h / 10;
 			dtime[3] = dtime[1] + h / 5;
 			dtime[4] = dtime[1] + 3. * h / 8;
@@ -258,18 +258,15 @@ int RungeKutta67(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 					- 25. * (876. + 55. * sqrt(21)) / 3969 * f[2][2] + 1280. * (913. + 18. * sqrt(21)) / 596673 * f[3][2] - (1353. + 26. * sqrt(21)) / 2268 * f[4][2]
 					+ 7. * (1777. + 377. * sqrt(21)) / 4428 * f[5][2] + 7. * (5. - sqrt(21)) / 36 * f[6][2]));
 			calc_accel(config_data, dir_SSB, &body[8], f[7], initVel, dtime[8] - dtime[1]);
-			//printf("\nf8 - dir_SSB[0]: %.16le", dir_SSB[0]);
 
 			// F9 - only used for error calculation
 			dir_SSB[0] = -(initPos[0] + h * initVel[0] + hp2 * (1. / 20 * f[0][0] + 8. / 45 * f[4][0] + 7. * (7. + sqrt(21)) / 360 * f[5][0] + 7. * (7. - sqrt(21)) / 360 * f[6][0]));
 			dir_SSB[1] = -(initPos[1] + h * initVel[1] + hp2 * (1. / 20 * f[0][1] + 8. / 45 * f[4][1] + 7. * (7. + sqrt(21)) / 360 * f[5][1] + 7. * (7. - sqrt(21)) / 360 * f[6][1]));
 			dir_SSB[2] = -(initPos[2] + h * initVel[2] + hp2 * (1. / 20 * f[0][2] + 8. / 45 * f[4][2] + 7. * (7. + sqrt(21)) / 360 * f[5][2] + 7. * (7. - sqrt(21)) / 360 * f[6][2]));
 			calc_accel(config_data, dir_SSB, &body[9], f[8], initVel, dtime[8] - dtime[1]);
-			//printf("\nf9 - dir_SSB[0]: %.16le", dir_SSB[0]);
 
 			// Absolute error (2-norm)
 			tEps_p = (f[7][0] - f[8][0]);
-			//printf("\ntEps_p = %.8le, f[7][0] = %.8le, f[8][0] = %.8le", tEps_p, f[7][0], f[8][0]);
 			tEps = tEps_p * tEps_p;
 			tEps_p = (f[7][1] - f[8][1]);
 			tEps += tEps_p * tEps_p;
@@ -304,7 +301,7 @@ int RungeKutta67(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 
 		// Update time
 		nstate[6] = time[1] + h;
-		// Save previous time for body interpolation
+		// Save previous time for body location interpolation
 		time[0] = time[1];
 
 #ifdef __WTIMESTEP
@@ -312,7 +309,7 @@ int RungeKutta67(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		{
 			hmin = h;
 		}
-		else if (h > hmax) // calculate larges time step
+		else if (h > hmax) // calculate largest time step
 		{
 			hmax = h;
 		}
@@ -349,10 +346,6 @@ int RungeKutta67(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 	}
 
 #ifdef __WTIMESTEP
-	if (zeroEps)
-	{
-		printf("\n            	 Warning: Epsilon was limited.");
-	}
 	printf("\n            	 Smallest time step: %.4le s", hmin);
 	printf("  -  Largest time step: %.4le s", hmax);
 	printf("  -  Total number of steps: %d", stepcount);

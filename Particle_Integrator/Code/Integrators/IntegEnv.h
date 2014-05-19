@@ -2,9 +2,9 @@
 
 // Solar wind drag factor
 #ifdef __SWD
-#define SWF 1.35
+#define SWF 1.35 // (1 + sw) with sw = 0.35
 #else
-#define SWDF 1.
+#define SWDF 1. // off
 #endif
 
 /* Calculate the acceleration of a particle based on the position of the body relative to the SSB */
