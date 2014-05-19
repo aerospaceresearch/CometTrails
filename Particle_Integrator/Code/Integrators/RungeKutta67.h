@@ -189,12 +189,13 @@ int RungeKutta67(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 					{
 						//printf("\nbefore: h = %.8le, time[1] = %.8le, tEpsMax = %.8le, tEps = %.8le ",h,time[1],tEpsMax,tEps);
 						// Critical section is only executed on one thread at a time (spice is not threadsafe)
-						for (m = 2; m < 8; m++)
+						for (m = 2; m < 9; m++)
 						{
 							(*bodyPosFP)(config_data->body_int[j], time[m], "ECLIPJ2000", "NONE", 0, body[m][j], &lt);
 						}
 					}
 				}
+
 				body[9][j][0] = body[8][j][0]; // same time
 				body[9][j][1] = body[8][j][1];
 				body[9][j][2] = body[8][j][2];
