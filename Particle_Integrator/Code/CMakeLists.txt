@@ -40,6 +40,8 @@ option (PRD
 	"Simulate Poynting-Robertson drag" ON)
 option (SWD
 	"Simulate solar wind drag" ON)
+option (SaveRateOpt
+	"Increase number of saved states when close to planets" ON)
 
 
 # INCLUDE
@@ -78,6 +80,10 @@ if (SWD)
 	add_definitions(-D__SWD)
 	message("SWD ACTIVE")
 endif (SWD)
+if (SaveRateOpt)
+	add_definitions(-D__SaveRateOpt)
+	message("SaveRateOpt ACTIVE")
+endif (SaveRateOpt)
 
 
 # LIBRARIES

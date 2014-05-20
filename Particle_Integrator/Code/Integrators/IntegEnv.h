@@ -78,6 +78,54 @@ void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceD
 
 
 
+/* Calculate a factor for more saving steps when planets are significantly influencing the acceleration. Only sun > save_factor = ~1, Only planets: save_factor = 0 */
+void calc_save_factor(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel)
+{
+	SpiceDouble r_body[3]		// [km]
+		, absr = 0.				// [km]
+		, r3					// [km^3]
+		, GMr3;					// [1/s^2]
+
+	SpiceDouble solAccel[3]		// [km/s^2]
+		, save_factor;			// [1]
+
+	int b; // body
+
+	for (b = 0; b < config_data->N_bodys; b++)
+	{
+		if (config_data->body_int[b] == 10) // only for the sun
+		{
+			r_body[0] = (*body_state)[b][0] + dir_SSB[0];
+			r_body[1] = (*body_state)[b][1] + dir_SSB[1];
+			r_body[2] = (*body_state)[b][2] + dir_SSB[2];
+
+			// Calculate GM*r^3
+			absr = sqrt(r_body[0] * r_body[0] + r_body[1] * r_body[1] + r_body[2] * r_body[2]); // abs(distance)
+			r3 = absr*absr*absr;
+			GMr3 = config_data->GM[b] / r3;
+
+			solAccel[0] = GMr3 * r_body[0];
+			solAccel[1] = GMr3 * r_body[1];
+			solAccel[2] = GMr3 * r_body[2];
+		}
+	}
+
+	// Save factor: (solar acceleration / total acceleration)^4
+	save_factor = (solAccel[0] * solAccel[0] + solAccel[1] * solAccel[1] + solAccel[2] * solAccel[2]) / (accel[0] * accel[0] + accel[1] * accel[1] + accel[2] * accel[2]);
+	save_factor *= save_factor;
+
+	if (save_factor < 0.9)
+	{
+		config_data->n_opt = (int)(save_factor * config_data->n + 0.5);
+	}
+	else
+	{
+		config_data->n_opt = config_data->n;
+	}
+}
+
+
+
 /* Print the state vector (x,y,z,vx,vy,vz,t) to the given file */
 int printpdata(FILE *statefile, SpiceDouble *nstate)
 {

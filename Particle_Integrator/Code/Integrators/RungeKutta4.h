@@ -84,6 +84,10 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 		k_vel_1[1] = initVel[1];
 		k_vel_1[2] = initVel[2];
 
+#ifdef __SaveRateOpt
+		calc_save_factor(config_data, dir_SSB, &body_pre, k_acc_1);
+#endif
+
 		//Set dynamic step size
 		abs_acc = sqrt(k_acc_1[0] * k_acc_1[0] + k_acc_1[1] * k_acc_1[1] + k_acc_1[2] * k_acc_1[2]);
 		dt = (config_data->dv_step / abs_acc);
@@ -161,7 +165,11 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 		i++;
 
 		//Save nth state
+#ifdef __SaveRateOpt
+		if (i == config_data->n_opt)
+#else
 		if (i == config_data->n)
+#endif // __SaveRateOpt
 		{
 			if (nstate[6] > config_data->start_time_save)
 			{
