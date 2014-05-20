@@ -34,8 +34,12 @@ option (WTIMING
 	"Measure computing duration" ON)
 option (WSTEPINFO
 	"Print time step extremes and number of steps" OFF)
+option (ENDONTIME
+	"Last step ends precisely on given end time" OFF)
 option (PRD
-	"Take Poynting-Robertson drag into account" ON)
+	"Simulate Poynting-Robertson drag" ON)
+option (SWD
+	"Simulate solar wind drag" ON)
 
 
 # INCLUDE
@@ -62,10 +66,18 @@ if (WSTEPINFO)
 	add_definitions(-D__WTIMESTEP)
 	message("TIME STEP EXTREMES OUTPUT ACTIVE")
 endif (WSTEPINFO)
+if (ENDONTIME)
+	add_definitions(-D__ENDONTIME)
+	message("ENDONTIME ACTIVE")
+endif (ENDONTIME)
 if (PRD)
 	add_definitions(-D__PRD)
 	message("PRD ACTIVE")
 endif (PRD)
+if (SWD)
+	add_definitions(-D__SWD)
+	message("SWD ACTIVE")
+endif (SWD)
 
 
 # LIBRARIES

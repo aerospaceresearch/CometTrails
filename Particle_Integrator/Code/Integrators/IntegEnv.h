@@ -1,70 +1,79 @@
 // Functions called by integration algorithms
 
-/* Calculate the acceleration of a particle based on the position of the body relative to the SSB */
-void calc_accel(configuration_values *config_out, SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel, SpiceDouble *Vel, SpiceDouble PRDconst, SpiceDouble dt)
-{
-	/* Units:	lSol	[kg*km^2/s^3] = [W*1e6]
-	 *			GM		[km^3/s^2]
-	 *			dir_SSB	[km]
-	 *			p_rad.	[m]
-	 *			c2		[km/s]
-	 *			absr	[km]
-	 *			ansV	[km/s]
-	 */
+// Solar wind drag/Poynting-Robertson drag factor
+#ifdef __PRD
+	#ifdef __SWD
+		#define SWDF 1.35	// PRD and SWD: (1 + sw) with sw = 0.35
+	#else
+		#define SWDF 1.		// PRD, no SWD
+	#endif // SWD
+#else // no PRD
+	#ifdef __SWD
+		#define SWDF 0.35	// SWD, no PRD
+	#else
+		#define SWDF 0.		// neither SWD nor PRD
+	#endif // SWD
+#endif // PRD
 
-	SpiceDouble direct_body[3], r3, GMr3, absr;
-	SpiceDouble aPRD; // absolute PRD-based acceleration
-	SpiceDouble iVel[3], absiV; // Intermediate Speed
+/* Calculate the acceleration of a particle based on the position of the body relative to the SSB */
+void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel, SpiceDouble *Vel, SpiceDouble dt)
+{
+	SpiceDouble r_body[3]	// [km]
+		, absr = 0.			// [km]
+		, r3				// [km^3]
+		, GMr3				// [1/s^2]
+		, iVel[3]			// Intermediate Speed [km/s]
+		, absiV;			// Intermediate Speed [km/s]
 	int b; // body
 
 	accel[0] = 0;
 	accel[1] = 0;
 	accel[2] = 0;
 
-	for (b = 0; b < config_out->N_bodys; b++)
+	for (b = 0; b < config_data->N_bodys; b++)
 	{
-		direct_body[0] = (*body_state)[b][0] + dir_SSB[0];
-		direct_body[1] = (*body_state)[b][1] + dir_SSB[1];
-		direct_body[2] = (*body_state)[b][2] + dir_SSB[2];
+		r_body[0] = (*body_state)[b][0] + dir_SSB[0];
+		r_body[1] = (*body_state)[b][1] + dir_SSB[1];
+		r_body[2] = (*body_state)[b][2] + dir_SSB[2];
 
 		// Calculate GM*r^3
-		absr = sqrt(direct_body[0] * direct_body[0] + direct_body[1] * direct_body[1] + direct_body[2] * direct_body[2]); // abs(distance)
+		absr = sqrt(r_body[0] * r_body[0] + r_body[1] * r_body[1] + r_body[2] * r_body[2]); // abs(distance)
 		r3 = absr*absr*absr; // ~ten times faster than pow((r1^2 + r2^2 + r3^2),1.5)
-		GMr3 = config_out->GM[b] / r3;
+		GMr3 = config_data->GM[b] / r3;
 
-		accel[2] += GMr3 * direct_body[2];
-		accel[0] += GMr3 * direct_body[0];
-		accel[1] += GMr3 * direct_body[1];
-		// printf("\n GMr3 * direct_body[0]: %.16le", GMr3 * direct_body[0]);
-	}
+		accel[2] += GMr3 * r_body[2];
+		accel[0] += GMr3 * r_body[0];
+		accel[1] += GMr3 * r_body[1];
+		// printf("\n GMr3 * r_body[0]: %.16le", GMr3 * r_body[0]);
 
-#ifdef __PRD
-	for (b = 0; b < config_out->N_bodys; b++)
-	{
-		// Sun: Calculate PRD
-		if (config_out->body_int[b] == 10)
+		if (config_data->body_int[b] == 10)
 		{
-			/* 
-			Calculate absolute acceleration due to Poynting-Robertson effect
-			
-			PRDconst = lSol * (particle_radius / 1000 * particle_radius / 1000) / (4. * c2) * sqrt(GM[b]) / particle_mass;
-			*/
-			aPRD = PRDconst / sqrt(absr*absr*absr*absr*absr);
+			SpiceDouble c = 299792.458	// [km/s]
+				, aPRDv[3]				// [km/s^2]
+				, Sn[3]					// [km]
+				, rp					// [km/s]
+				, GM_r2;				// [km/s^2]
 
-			/* Calculate velocity intermediate value */
+			// Calculate velocity intermediate value
 			iVel[0] = Vel[0] + dt * accel[0];
 			iVel[1] = Vel[1] + dt * accel[1];
 			iVel[2] = Vel[2] + dt * accel[2];
 
-			absiV = sqrt(iVel[0] * iVel[0] + iVel[1] * iVel[1] + iVel[2] * iVel[2]);
+			// normalized body direction value
+			Sn[0] = -r_body[0] / absr;
+			Sn[1] = -r_body[1] / absr;
+			Sn[2] = -r_body[2] / absr;
 
-			accel[0] += aPRD * -iVel[0] / absiV;
-			accel[1] += aPRD * -iVel[1] / absiV;
-			accel[2] += aPRD * -iVel[2] / absiV;
-			// printf("\n apr * -Vel[0] / absv: %.16le", aPRD * -Vel[0] / absv);
+			rp = iVel[0] * Sn[0] + iVel[1] * Sn[1] + iVel[2] * Sn[2]; // absolute change of the radius between body and particle [km/s]
+
+			// add radiation pressure acceleration and Poynting-Robertson drag acceleration
+			GM_r2 = config_data->betaGM / (absr * absr);
+			
+			accel[0] += GM_r2 * ((1. - SWDF * rp / c) * Sn[0] - SWDF * iVel[0] / c);
+			accel[1] += GM_r2 * ((1. - SWDF * rp / c) * Sn[1] - SWDF * iVel[1] / c);
+			accel[2] += GM_r2 * ((1. - SWDF * rp / c) * Sn[2] - SWDF * iVel[2] / c);
 		}
 	}
-#endif // __PRD
 }
 
 
@@ -72,7 +81,15 @@ void calc_accel(configuration_values *config_out, SpiceDouble dir_SSB[], SpiceDo
 /* Print the state vector (x,y,z,vx,vy,vz,t) to the given file */
 int printpdata(FILE *statefile, SpiceDouble *nstate)
 {
-	fprintf(statefile, "%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\n", (nstate)[0], (nstate)[1], (nstate)[2], (nstate)[3], (nstate)[4], (nstate)[5], (nstate)[6]);
+	if (isnan(nstate[0]) || isnan(nstate[1]) || isnan(nstate[2]) || isnan(nstate[3]) || isnan(nstate[4]) || isnan(nstate[5]) || isnan(nstate[6]))
+	{
+		printf("\n\nerror: printing state to file failed, result is not a number. This value will be skipped.");
+		return 1;
+	}
+	else
+	{
+		fprintf(statefile, "%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\t%.16le\n", (nstate)[0], (nstate)[1], (nstate)[2], (nstate)[3], (nstate)[4], (nstate)[5], (nstate)[6]);
+	}
 
 	return 0;
 }
@@ -80,27 +97,32 @@ int printpdata(FILE *statefile, SpiceDouble *nstate)
 
 
 /* Calculate particle-constant part of PRD */
-SpiceDouble calc_prdc(configuration_values *config_out)
+int calc_pInfo(configuration_values *config_data)
 {
-#ifdef __PRD
-	int j;
-	SpiceDouble cp2 = 89875517873.681764; // speed of light squared, Unit: [km^2/s^2]
-	SpiceDouble lSol = 3.846e20; // Unit: [kg*km^2/s^3] - equivalent to 3.846e26 [W]
-	SpiceDouble PRDconst = 0.; // Unit: [km^3.5/s^2]
+	int b;
 
-	for (j = 0; j < config_out->N_bodys; j++)
+	if (config_data->particle_mass > 0.)
 	{
-		if (config_out->body_int[j] == 10)
+		// Manipulate sun mass to simulate solar pressure
+		SpiceDouble PI = 3.1415926535897932		// [1]
+			, c = 299792458.;					// [m/s]
+		config_data->solar_lum = 3.846e26;		// [W]
+
+		config_data->particle_radius = pow((config_data->particle_mass) / ((1.3333) * PI * (config_data->particle_density)), 0.3333);
+
+		for (b = 0; b < config_data->N_bodys; b++)
 		{
-			PRDconst = lSol * (config_out->particle_radius / 1000 * config_out->particle_radius / 1000) / (4. * cp2) * sqrt(config_out->GM[j]) / config_out->particle_mass;
-			break;
+			if (config_data->body_int[b] == 10)
+			{
+				config_data->beta = 3. * (config_data->solar_lum) * config_data->q_pr / (16. * PI * c * (config_data->GM[b] * 1.e9) * config_data->particle_density * config_data->particle_radius);
+
+				config_data->betaGM = config_data->beta * config_data->GM[b];
+				break;
+			}
 		}
 	}
 
-	return PRDconst;
-#else // not __PRD
-	return 0.0;
-#endif // __PRD
+	return 0;
 }
 
 
@@ -116,6 +138,7 @@ void return_SSB(SpiceInt            targ,
 				SpiceDouble         ptarg[3],
 				SpiceDouble       * lt) // Most parameters are unreferenced but necessary for identical function calls to spkezp_c
 {
+	// not using: targ, et, ref, abcorr, obs, lt
 	int j;
 	for (j = 0; j < 3; j++)
 	{
