@@ -78,7 +78,8 @@ void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceD
 
 
 
-/* Calculate a factor for more saving steps when planets are significantly influencing the acceleration. Only sun > save_factor = ~1, Only planets: save_factor = 0 */
+#ifdef __SaveRateOpt
+/* Calculate a factor for more saved steps when planets are significantly influencing the acceleration. Only sun > save_factor = ~1, Only planets: save_factor = 0 */
 void calc_save_factor(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel)
 {
 	SpiceDouble r_body[3]		// [km]
@@ -123,6 +124,7 @@ void calc_save_factor(configuration_values *config_data, SpiceDouble dir_SSB[], 
 		config_data->n_opt = config_data->n;
 	}
 }
+#endif // __SaveRateOpt
 
 
 

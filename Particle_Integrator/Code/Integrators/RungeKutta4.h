@@ -85,7 +85,10 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 		k_vel_1[2] = initVel[2];
 
 #ifdef __SaveRateOpt
-		calc_save_factor(config_data, dir_SSB, &body_pre, k_acc_1);
+		if (nstate[6] > config_data->start_time_save)
+		{
+			calc_save_factor(config_data, dir_SSB, &body_pre, k_acc_1);
+		}
 #endif
 
 		//Set dynamic step size

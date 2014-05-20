@@ -121,7 +121,10 @@ int RungeKutta67(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		calc_accel(config_data, dir_SSB, &body[1], f[0], initVel, 0.0);
 
 #ifdef __SaveRateOpt
-		calc_save_factor(config_data, dir_SSB, &body[1], f[0]);
+		if (nstate[6] > config_data->start_time_save)
+		{
+			calc_save_factor(config_data, dir_SSB, &body[1], f[0]);
+		}
 #endif
 
 		// dtime: time difference compared to time[0]
