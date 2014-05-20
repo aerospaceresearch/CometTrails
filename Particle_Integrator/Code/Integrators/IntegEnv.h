@@ -1,11 +1,19 @@
 // Functions called by integration algorithms
 
-// Solar wind drag factor
-#ifdef __SWD
-#define SWF 1.35 // (1 + sw) with sw = 0.35
-#else
-#define SWDF 1. // off
-#endif
+// Solar wind drag/Poynting-Robertson drag factor
+#ifdef __PRD
+	#ifdef __SWD
+		#define SWDF 1.35	// PRD and SWD: (1 + sw) with sw = 0.35
+	#else
+		#define SWDF 1.		// PRD, no SWD
+	#endif // SWD
+#else // no PRD
+	#ifdef __SWD
+		#define SWDF 0.35	// SWD, no PRD
+	#else
+		#define SWDF 0.		// neither SWD nor PRD
+	#endif // SWD
+#endif // PRD
 
 /* Calculate the acceleration of a particle based on the position of the body relative to the SSB */
 void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel, SpiceDouble *Vel, SpiceDouble dt)
