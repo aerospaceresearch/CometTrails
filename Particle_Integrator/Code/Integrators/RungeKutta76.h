@@ -120,6 +120,13 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		dir_SSB[2] = -(initPos[2]);
 		calc_accel(config_data, dir_SSB, &body[1], f[0], initVel, 0.);
 
+#ifdef __SaveRateOpt
+		if (nstate[6] > config_data->start_time_save)
+		{
+			calc_save_factor(config_data, dir_SSB, &body[1], f[0]);
+		}
+#endif
+
 		// dtime: time difference compared to time[0]
 		dtime[1] = time[1] - time[0];
 
@@ -316,9 +323,12 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		stepcount++;
 
 		// Save nth state
+#ifdef __SaveRateOpt
+		if ((stepcount % config_data->n_opt) == 0)
+#else
 		if ((stepcount % config_data->n) == 0)
+#endif // __SaveRateOpt
 		{
-			//printf("\n tEps = %.12le", tEps);
 			if (nstate[6] > config_data->start_time_save)
 			{
 				printpdata(statefile, nstate);
