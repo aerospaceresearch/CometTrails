@@ -1,9 +1,9 @@
-/* 7th and 6th order Runge-Kutta method as described in:
+/* 7th and 6th order Runge-Kutta-Nystrom method as described in:
    J.R. Dormand & P.J. Prince (1978): New Runge-Kutta algorithms for numerical simulation in dynamical astronomy. Celestial Mechanics, Vol. 18, p. 223-232. 
    
    Steps exceeding the maximum allowed error (e_target) will be repeated. */
 
-int RungeKutta67(configuration_values *config_data, SpiceDouble *nstate, FILE *statefile)
+int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *statefile)
 {
 	// Select body position function to use ((*bodyPosFP) for spice, return_SSB for (0,0,0))
 	void (*bodyPosFP)(SpiceInt, SpiceDouble, ConstSpiceChar *, ConstSpiceChar *, SpiceInt, SpiceDouble[3], SpiceDouble *);
@@ -25,7 +25,7 @@ int RungeKutta67(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		, tEps_p = 0.0;					// [km] temporary storage of partial error per space dimension
 
 	// Create body arrays and set initial body positions
-	SpiceDouble **(body[9]); // body[0] is t = time[1] - h, body[1] is t = time[1], body[8] is t = time[1] + h
+	SpiceDouble **(body[9]); // body[0] is t = time[1] - h, body[1] is t = time[1], ..., body[8] is t = time[1] + h
 
 	for (k = 0; k < 9; k++)
 	{
@@ -119,6 +119,13 @@ int RungeKutta67(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		dir_SSB[1] = -(initPos[1]);
 		dir_SSB[2] = -(initPos[2]);
 		calc_accel(config_data, dir_SSB, &body[1], f[0], initVel, 0.);
+
+#ifdef __SaveRateOpt
+		if (nstate[6] > config_data->start_time_save)
+		{
+			calc_save_factor(config_data, dir_SSB, &body[1], f[0]);
+		}
+#endif
 
 		// dtime: time difference compared to time[0]
 		dtime[1] = time[1] - time[0];
@@ -316,9 +323,12 @@ int RungeKutta67(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		stepcount++;
 
 		// Save nth state
+#ifdef __SaveRateOpt
+		if ((stepcount % config_data->n_opt) == 0)
+#else
 		if ((stepcount % config_data->n) == 0)
+#endif // __SaveRateOpt
 		{
-			//printf("\n tEps = %.12le", tEps);
 			if (nstate[6] > config_data->start_time_save)
 			{
 				printpdata(statefile, nstate);

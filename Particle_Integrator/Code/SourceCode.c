@@ -54,7 +54,7 @@
 #include <PI_types.h> // configuration_values, configuration_readout
 #include <IntegEnv.h> // calc_accel(), printpdata(), calc_pInfo(), return_SSB()
 #include <RungeKutta4.h>
-#include <RungeKutta67.h>
+#include <RungeKutta76.h>
 
 bool particle_already_processed(int p, char already_done_path[]);
 bool particle_incomplete(char outputpath[], SpiceDouble *nstate);
@@ -152,7 +152,7 @@ int main(void)
 	j = -nCommentLines;
 	while (fgets(temp, sizeof(temp), particles_start_file) != NULL)
 	{
-		if (j >= 0)
+		if (j >= 0) // Warning: sscanf functions will cause a crash if parameters are missing in the input file
 		{
 			char* cval = strtok_r(temp, "\t", &next_token);
 			for (g = 0; g < 6; g++)
@@ -174,7 +174,7 @@ int main(void)
 	if (config_data.algorithm == 1)
 		printf("\n algorithm		= RK4");
 	else if (config_data.algorithm == 2)
-		printf("\n algorithm		= RK67");
+		printf("\n algorithm		= RK76");
 	else
 		printf("\n algorithm unknown.");
 	if (config_data.number_of_threads > 1)
@@ -207,7 +207,7 @@ int main(void)
 	for (j = 0; j < config_data.N_bodys; j++)
 	{
 		if (config_data.body_int[j] == 10)
-			printf("\n solar GM       	= %.12le", config_data.GM[j]);
+			printf("\n Beta-corr. solar GM	= %.12le", config_data.GM[j] * (1. - config_data.beta));
 	}
 	if (config_data.first_particle_number != 1)
 		printf("\n first_particle_number	= %d", config_data.first_particle_number);
@@ -369,7 +369,7 @@ int main(void)
 					err = RungeKutta4(&config_data, nstate, statefile);
 					break;
 				case 2:
-					err = RungeKutta67(&config_data, nstate, statefile);
+					err = RungeKutta76(&config_data, nstate, statefile);
 					break;
 				default:
 					err = 1;
@@ -645,7 +645,7 @@ static int handler(void* user, const char* section, const char* name, const char
 	else if (MATCH("rk4", "DV_STEP")) {
 		pconfig->dvstep = strdup(value);
 	}
-	else if (MATCH("rk67", "E_TARGET")) {
+	else if (MATCH("rk76", "E_TARGET")) {
 		pconfig->etarget = strdup(value);
 	}
 	else if (MATCH("simulation", "SAVE_NTH_MULTIPLIER")) {
@@ -726,7 +726,7 @@ int read_configuration(configuration_values *config_data)
 	{
 		config_data->algorithm = 1;
 	}
-	else if (strcmp(config.algo, "RK67") == 0)
+	else if (strcmp(config.algo, "RK76") == 0)
 	{
 		config_data->algorithm = 2;
 	}

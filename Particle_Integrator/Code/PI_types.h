@@ -15,6 +15,7 @@ typedef struct
 	int body_int[10];
 	SpiceDouble GM[12];				// [km^3/s^2]
 	int n;
+	int n_opt;
 	int first_particle_number;
 	SpiceDouble particle_mass;		// [kg]
 	SpiceDouble particle_density;	// [kg/m^-3]
