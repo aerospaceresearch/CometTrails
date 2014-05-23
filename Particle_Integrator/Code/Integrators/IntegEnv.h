@@ -111,13 +111,15 @@ void calc_save_factor(configuration_values *config_data, SpiceDouble dir_SSB[], 
 		}
 	}
 
-	// Save factor: (solar acceleration / total acceleration)^4
+	// Save factor: (solar acceleration / total acceleration)^(0.5)
 	save_factor = (solAccel[0] * solAccel[0] + solAccel[1] * solAccel[1] + solAccel[2] * solAccel[2]) / (accel[0] * accel[0] + accel[1] * accel[1] + accel[2] * accel[2]);
-	save_factor *= save_factor;
 
-	if (save_factor < 0.9)
+	if (save_factor < 0.8)
 	{
-		config_data->n_opt = (int)(save_factor * config_data->n + 0.5);
+		//printf("\n save_factor: %.6le, n_opt: %d", save_factor, config_data->n_opt);
+		config_data->n_opt = (int)(sqrt(sqrt(save_factor)) * config_data->n);
+		if (config_data->n_opt < 1)
+			config_data->n_opt = 1;
 	}
 	else
 	{

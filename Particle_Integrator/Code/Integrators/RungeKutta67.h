@@ -331,7 +331,6 @@ int RungeKutta67(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 #else
 		if ((stepcount % config_data->n) == 0)
 #endif // __SaveRateOpt
-		if ((stepcount % config_data->n) == 0)
 		{
 			if (nstate[6] > config_data->start_time_save)
 			{
