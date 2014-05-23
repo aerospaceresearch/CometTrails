@@ -152,7 +152,7 @@ int main(void)
 	j = -nCommentLines;
 	while (fgets(temp, sizeof(temp), particles_start_file) != NULL)
 	{
-		if (j >= 0)
+		if (j >= 0) // Warning: sscanf functions will cause a crash if parameters are missing in the input file
 		{
 			char* cval = strtok_r(temp, "\t", &next_token);
 			for (g = 0; g < 6; g++)
@@ -207,7 +207,7 @@ int main(void)
 	for (j = 0; j < config_data.N_bodys; j++)
 	{
 		if (config_data.body_int[j] == 10)
-			printf("\n solar GM       	= %.12le", config_data.GM[j]);
+			printf("\n Beta-corr. solar GM	= %.12le", config_data.GM[j] * (1. - config_data.beta));
 	}
 	if (config_data.first_particle_number != 1)
 		printf("\n first_particle_number	= %d", config_data.first_particle_number);

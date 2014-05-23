@@ -3,7 +3,7 @@
    
    Steps exceeding the maximum allowed error (e_target) will be repeated. */
 
-int RungeKutta67(configuration_values *config_data, SpiceDouble *nstate, FILE *statefile)
+int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *statefile)
 {
 	// Select body position function to use ((*bodyPosFP) for spice, return_SSB for (0,0,0))
 	void (*bodyPosFP)(SpiceInt, SpiceDouble, ConstSpiceChar *, ConstSpiceChar *, SpiceInt, SpiceDouble[3], SpiceDouble *);
@@ -25,7 +25,7 @@ int RungeKutta67(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		, tEps_p = 0.0;					// [km] temporary storage of partial error per space dimension
 
 	// Create body arrays and set initial body positions
-	SpiceDouble **(body[9]); // body[0] is t = time[1] - h, body[1] is t = time[1], body[8] is t = time[1] + h
+	SpiceDouble **(body[9]); // body[0] is t = time[1] - h, body[1] is t = time[1], ..., body[8] is t = time[1] + h
 
 	for (k = 0; k < 9; k++)
 	{
