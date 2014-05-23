@@ -1,4 +1,4 @@
-/* 7th and 6th order Runge-Kutta method as described in:
+/* 7th and 6th order Runge-Kutta-Nystrom method as described in:
    J.R. Dormand & P.J. Prince (1978): New Runge-Kutta algorithms for numerical simulation in dynamical astronomy. Celestial Mechanics, Vol. 18, p. 223-232. 
    
    Steps exceeding the maximum allowed error (e_target) will be repeated. */
