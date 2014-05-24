@@ -213,14 +213,50 @@ pip-log.txt
 
 #Mr Developer
 .mr.developer.cfg
+
+######################
+## Project-specific
+######################
+
+# Build directory
 Particle_Integrator/Code/CMake/
-Particle_Integrator/Code/cspice/
+
+# cspice
+Particle_Integrator/Code/cspice/data/
+Particle_Integrator/Code/cspice/doc/
+Particle_Integrator/Code/cspice/etc/
+Particle_Integrator/Code/cspice/exe/
+Particle_Integrator/Code/cspice/include/
+Particle_Integrator/Code/cspice/lib/
+Particle_Integrator/Code/cspice/src/
+Particle_Integrator/Code/cspice/makeall.bat
+
+Particle_Integrator/Code/cspice32/data/
+Particle_Integrator/Code/cspice32/doc/
+Particle_Integrator/Code/cspice32/etc/
+Particle_Integrator/Code/cspice32/exe/
+Particle_Integrator/Code/cspice32/include/
+Particle_Integrator/Code/cspice32/lib/
+Particle_Integrator/Code/cspice32/src/
+Particle_Integrator/Code/cspice32/makeall.bat
+
+Particle_Integrator/Code/cspice64/data/
+Particle_Integrator/Code/cspice64/doc/
+Particle_Integrator/Code/cspice64/etc/
+Particle_Integrator/Code/cspice64/exe/
+Particle_Integrator/Code/cspice64/include/
+Particle_Integrator/Code/cspice64/lib/
+Particle_Integrator/Code/cspice64/src/
+Particle_Integrator/Code/cspice64/makeall.bat
+
+# Test results
 Particle_Integrator/Test/progress.txt
+Particle_Integrator/Test/INPUT/processed_particles.txt
+Particle_Integrator/Test/OUTPUT/
+
 *.dll
 *.bsp
 *.tpc
 *.pc
 *.tls
 *.exe
-Particle_Integrator/Test/INPUT/processed_particles.txt
-Particle_Integrator/Test/OUTPUT/
