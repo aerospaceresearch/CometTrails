@@ -10,7 +10,7 @@ set (PROJECT_SOURCE_DIR ${CMAKE_SOURCE_DIR})
 # VERSION
 
 set (ParticleIntegrator_VERSION_MAJOR 0)
-set (ParticleIntegrator_VERSION_MINOR 13)
+set (ParticleIntegrator_VERSION_MINOR 14)
 
 
 # Passing on CMake Settings
@@ -185,7 +185,7 @@ IF(MSVC)
 #	Reset to default:
 #		set(CMAKE_GENERATOR_TOOLSET "v120" CACHE STRING "Platform Toolset" FORCE) 
 #	Win XP:
-#		set(CMAKE_GENERATOR_TOOLSET "v120_xp" CACHE STRING "Platform Toolset" FORCE) 
+		set(CMAKE_GENERATOR_TOOLSET "v120_xp" CACHE STRING "Platform Toolset" FORCE) 
 ENDIF(MSVC)
 	message("> CMAKE_GENERATOR_TOOLSET: ${CMAKE_GENERATOR_TOOLSET}")
 

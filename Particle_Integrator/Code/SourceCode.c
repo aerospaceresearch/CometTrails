@@ -698,7 +698,7 @@ int read_configuration(configuration_values *config_data)
 	config.nbodys = 0;
 	config.bodysid = "";
 	config.dvstep = "10e-3";
-	config.etarget = "10e-15";
+	config.etarget = "10e-18";
 	config.mult = "20.";
 	config.nthreads = 1;
 	config.savebin = 0;
