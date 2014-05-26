@@ -1,5 +1,5 @@
 # ParticleIntegrator
-**Version 0.12**
+**Version 0.14**
 
 ##Instructions
 
@@ -20,6 +20,12 @@ Regards, Max
 
 
 ##Changelog
+
+__0.14__	-25.05.2014-:
+-	output can be converted to binary to save space (SAVE_AS_BINARY = 1)
+-	new 7th/6th order Runge-Kutta-Nystrom integrator with adaptive stepsize
+-	added Poynting-Robertson drag, solar wind drag and reimplemented solar radiation pressure
+-	optimized saving rate in proximity to planets
 
 __0.13__	-14.04.2014-:
 

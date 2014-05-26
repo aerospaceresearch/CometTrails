@@ -10,7 +10,7 @@ set (PROJECT_SOURCE_DIR ${CMAKE_SOURCE_DIR})
 # VERSION
 
 set (ParticleIntegrator_VERSION_MAJOR 0)
-set (ParticleIntegrator_VERSION_MINOR 13)
+set (ParticleIntegrator_VERSION_MINOR 14)
 
 
 # Passing on CMake Settings
@@ -105,7 +105,8 @@ endif (SaveRateOpt)
 # LIBRARIES
 
 if (MSVC)
-		SET(CMAKE_EXE_LINKER_FLAGS /NODEFAULTLIB:LIBCMT)
+	SET(CMAKE_EXE_LINKER_FLAGS /NODEFAULTLIB:LIBCMT;LIBCMTD)
+	message("> CMAKE_EXE_LINKER_FLAGS: ${CMAKE_EXE_LINKER_FLAGS}")
 endif ()
 
 add_subdirectory (${PROJECT_SOURCE_DIR}/Inih)
@@ -175,6 +176,18 @@ message("> CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
 message("> CMAKE_C_FLAGS_RELEASE: ${CMAKE_C_FLAGS_RELEASE}")
 message("> CMAKE_C_FLAGS_DEBUG: ${CMAKE_C_FLAGS_DEBUG}")
 message("> CMAKE_C_FLAGS_RELWITHDEBINFO: ${CMAKE_C_FLAGS_RELWITHDEBINFO}")
+
+
+# XP Platform toolset (edit manually)
+
+IF(MSVC)
+#	To set the platform toolset, uncomment the line with the desired toolkit, then delete the CMake build directory while CMake is closed.
+#	Reset to default:
+#		set(CMAKE_GENERATOR_TOOLSET "v120" CACHE STRING "Platform Toolset" FORCE) 
+#	Win XP:
+		set(CMAKE_GENERATOR_TOOLSET "v120_xp" CACHE STRING "Platform Toolset" FORCE) 
+ENDIF(MSVC)
+	message("> CMAKE_GENERATOR_TOOLSET: ${CMAKE_GENERATOR_TOOLSET}")
 
 
 # DEBUG
