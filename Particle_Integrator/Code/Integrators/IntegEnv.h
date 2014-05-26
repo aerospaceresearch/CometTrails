@@ -22,8 +22,7 @@ void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceD
 		, absr = 0.			// [km]
 		, r3				// [km^3]
 		, GMr3				// [1/s^2]
-		, iVel[3]			// Intermediate Speed [km/s]
-		, absiV;			// Intermediate Speed [km/s]
+		, iVel[3];			// Intermediate Speed [km/s]
 	int b; // body
 
 	accel[0] = 0;
@@ -49,7 +48,6 @@ void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceD
 		if (config_data->body_int[b] == 10)
 		{
 			SpiceDouble c = 299792.458	// [km/s]
-				, aPRDv[3]				// [km/s^2]
 				, Sn[3]					// [km]
 				, rp					// [km/s]
 				, GM_r2;				// [km/s^2]
@@ -80,7 +78,7 @@ void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceD
 
 #ifdef __SaveRateOpt
 /* Calculate a factor for more saved steps when planets are significantly influencing the acceleration. Only sun > save_factor = ~1, Only planets: save_factor = 0 */
-void calc_save_factor(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel)
+int calc_save_factor(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel)
 {
 	SpiceDouble r_body[3]		// [km]
 		, absr = 0.				// [km]
@@ -90,7 +88,7 @@ void calc_save_factor(configuration_values *config_data, SpiceDouble dir_SSB[], 
 	SpiceDouble solAccel[3]		// [km/s^2]
 		, save_factor;			// [1]
 
-	int b; // body
+	int b, noSun = 1; // body
 
 	for (b = 0; b < config_data->N_bodys; b++)
 	{
@@ -108,7 +106,14 @@ void calc_save_factor(configuration_values *config_data, SpiceDouble dir_SSB[], 
 			solAccel[0] = GMr3 * r_body[0];
 			solAccel[1] = GMr3 * r_body[1];
 			solAccel[2] = GMr3 * r_body[2];
+
+			noSun = 0;
 		}
+	}
+
+	if (noSun == 1)
+	{
+		return 1;
 	}
 
 	// Save factor: (solar acceleration / total acceleration)^(0.5)
@@ -119,12 +124,16 @@ void calc_save_factor(configuration_values *config_data, SpiceDouble dir_SSB[], 
 		//printf("\n save_factor: %.6le, n_opt: %d", save_factor, config_data->n_opt);
 		config_data->n_opt = (int)(sqrt(sqrt(save_factor)) * config_data->n);
 		if (config_data->n_opt < 1)
+		{
 			config_data->n_opt = 1;
+		}
 	}
 	else
 	{
 		config_data->n_opt = config_data->n;
 	}
+
+	return 0;
 }
 #endif // __SaveRateOpt
 

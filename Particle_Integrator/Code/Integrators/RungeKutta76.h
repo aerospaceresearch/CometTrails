@@ -17,7 +17,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 	}
 
 	// Create some variables
-	int stepcount = 0, substepcount = 0, j = 0, k = 0, m = 0, zeroEps = 0;
+	int stepcount = 0, substepcount = 0, j = 0, k = 0, m = 0;
 	SpiceDouble lt						// return value of spkezp_c that is not used
 		, h = 10000.0					// [s] (initial) step size
 		, hp2							// [s^2] h squared
@@ -123,7 +123,11 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 #ifdef __SaveRateOpt
 		if (nstate[6] > config_data->start_time_save)
 		{
-			calc_save_factor(config_data, dir_SSB, &body[1], f[0]);
+			if (calc_save_factor(config_data, dir_SSB, &body[1], f[0]))
+			{
+				printf("\n\nerror: Sun missing.");
+				return 1;
+			}
 		}
 #endif
 
@@ -140,7 +144,6 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 			else
 			{
 				h = h * 1.4;
-				zeroEps = 1;
 			}
 
 #ifdef __ENDONTIME

@@ -1,4 +1,9 @@
-#include <stdio.h>
+#ifdef _WIN32
+	#include <stdio.h>
+#else
+	#define _GNU_SOURCE // for fcloseall() on linux
+	#include <stdio.h>
+#endif
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
@@ -36,6 +41,7 @@
 	#define strcpy strcpy_s
 	#define sscanf sscanf_s
 	#define strtok_r strtok_s
+	#define fcloseall _fcloseall
 #else
 	#define strcpy( a1, a2, a3 ) strcpy( a1, a3 )
 	#define fopen_s( a1, a2, a3 ) *a1 = fopen( a2, a3 )
