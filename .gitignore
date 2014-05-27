@@ -214,12 +214,14 @@ pip-log.txt
 #Mr Developer
 .mr.developer.cfg
 
-######################
+#############
 ## Project-specific
-######################
+#############
 
 # Build directory
 Particle_Integrator/Code/CMake/
+Particle_Integrator/Code/CMake32/
+Particle_Integrator/Code/CMake64/
 
 # cspice
 Particle_Integrator/Code/cspice/data/
@@ -254,6 +256,7 @@ Particle_Integrator/Test/progress.txt
 Particle_Integrator/Test/INPUT/processed_particles.txt
 Particle_Integrator/Test/OUTPUT/
 
+# File types
 *.dll
 *.bsp
 *.tpc

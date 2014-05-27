@@ -213,7 +213,7 @@ int main(void)
 	for (j = 0; j < config_data.N_bodys; j++)
 	{
 		if (config_data.body_int[j] == 10)
-			printf("\n Beta-corr. solar GM	= %.12le", config_data.GM[j] * (1. - config_data.beta));
+			printf("\n beta-corr. solar GM	= %.12le", config_data.GM[j] * (1. - config_data.beta));
 	}
 	if (config_data.first_particle_number != 1)
 		printf("\n first_particle_number	= %d", config_data.first_particle_number);
@@ -973,6 +973,11 @@ int convert_results_into_binary(configuration_values config_data, int particles_
 	char binary_path[260] = "";
 	sprintf_s(binary_path, 260, "%s.ctwu", config_data.outputpath);
 	fopen_s(&binout, binary_path, "wb");
+	if (binout == NULL)
+	{
+		printf("\n\nerror:	could not create binary output file.\n");
+		return 1;
+	}
 	for (h = 0; h < result_array_length; h++)
 	{
 		fwrite(result_array[h], sizeof(float), 7, binout);
