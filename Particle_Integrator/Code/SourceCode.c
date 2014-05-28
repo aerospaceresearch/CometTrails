@@ -809,7 +809,19 @@ int read_configuration(configuration_values *config_data)
 	}
 	else
 	{
-		config_data->n = (int)(mult / config_data->dv_step + 0.5);
+		if (config_data->algorithm == 1) // RK4
+		{
+			config_data->n = (int)(mult / config_data->dv_step + 0.5);
+		}
+		else if (config_data->algorithm == 2) // RK76
+		{
+			// Close to constant number of total steps saved across e_target values. 1.4e3 is a factor imitating the number of steps that would be saved with RK4.
+			config_data->n = (int)(mult / 1.4e3 * pow(10,(3.6072 - 0.0746 * log10( config_data->e_target ))) + 0.5);
+		}
+		else // Unknown algorithm
+		{
+			config_data->n = 10;
+		}
 	}
 
 	//Set which particle to start and end with (particle number, from 1 to the number of particles in the input file)
