@@ -87,7 +87,11 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 #ifdef __SaveRateOpt
 		if (nstate[6] > config_data->start_time_save)
 		{
-			calc_save_factor(config_data, dir_SSB, &body_pre, k_acc_1);
+			if (calc_save_factor(config_data, dir_SSB, &body_pre, k_acc_1))
+			{
+				printf("\n\nerror: Sun missing.");
+				return 1;
+			}
 		}
 #endif
 

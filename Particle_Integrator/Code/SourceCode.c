@@ -1,4 +1,9 @@
-#include <stdio.h>
+#ifdef _WIN32
+	#include <stdio.h>
+#else
+	#define _GNU_SOURCE // for fcloseall() on linux
+	#include <stdio.h>
+#endif
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
@@ -36,6 +41,7 @@
 	#define strcpy strcpy_s
 	#define sscanf sscanf_s
 	#define strtok_r strtok_s
+	#define fcloseall _fcloseall
 #else
 	#define strcpy( a1, a2, a3 ) strcpy( a1, a3 )
 	#define fopen_s( a1, a2, a3 ) *a1 = fopen( a2, a3 )
@@ -207,7 +213,7 @@ int main(void)
 	for (j = 0; j < config_data.N_bodys; j++)
 	{
 		if (config_data.body_int[j] == 10)
-			printf("\n Beta-corr. solar GM	= %.12le", config_data.GM[j] * (1. - config_data.beta));
+			printf("\n beta-corr. solar GM	= %.12le", config_data.GM[j] * (1. - config_data.beta));
 	}
 	if (config_data.first_particle_number != 1)
 		printf("\n first_particle_number	= %d", config_data.first_particle_number);
@@ -803,7 +809,19 @@ int read_configuration(configuration_values *config_data)
 	}
 	else
 	{
-		config_data->n = (int)(mult / config_data->dv_step + 0.5);
+		if (config_data->algorithm == 1) // RK4
+		{
+			config_data->n = (int)(mult / config_data->dv_step + 0.5);
+		}
+		else if (config_data->algorithm == 2) // RK76
+		{
+			// Close to constant number of total steps saved across e_target values. 1.4e3 is a factor imitating the number of steps that would be saved with RK4.
+			config_data->n = (int)(mult / 1.4e3 * pow(10,(3.6072 - 0.0746 * log10( config_data->e_target ))) + 0.5);
+		}
+		else // Unknown algorithm
+		{
+			config_data->n = 10;
+		}
 	}
 
 	//Set which particle to start and end with (particle number, from 1 to the number of particles in the input file)
@@ -967,6 +985,11 @@ int convert_results_into_binary(configuration_values config_data, int particles_
 	char binary_path[260] = "";
 	sprintf_s(binary_path, 260, "%s.ctwu", config_data.outputpath);
 	fopen_s(&binout, binary_path, "wb");
+	if (binout == NULL)
+	{
+		printf("\n\nerror:	could not create binary output file.\n");
+		return 1;
+	}
 	for (h = 0; h < result_array_length; h++)
 	{
 		fwrite(result_array[h], sizeof(float), 7, binout);
