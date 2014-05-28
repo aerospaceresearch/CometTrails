@@ -103,12 +103,12 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 
 		for (j = 0; j < config_data->N_bodys; j++)
 		{
-			// Save previous body state
+			// Save previous body state (body[1] is only a useful value from the second step onwards)
 			body[0][j][0] = body[1][j][0];
 			body[0][j][1] = body[1][j][1];
 			body[0][j][2] = body[1][j][2];
 
-			// Set new initial body state
+			// Set new initial body state (body[8] is always a useful value)
 			body[1][j][0] = body[8][j][0];
 			body[1][j][1] = body[8][j][1];
 			body[1][j][2] = body[8][j][2];
@@ -119,17 +119,6 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		dir_SSB[1] = -(initPos[1]);
 		dir_SSB[2] = -(initPos[2]);
 		calc_accel(config_data, dir_SSB, &body[1], f[0], initVel, 0.);
-
-#ifdef __SaveRateOpt
-		if (nstate[6] > config_data->start_time_save)
-		{
-			if (calc_save_factor(config_data, dir_SSB, &body[1], f[0]))
-			{
-				printf("\n\nerror: Sun missing.");
-				return 1;
-			}
-		}
-#endif
 
 		// dtime: time difference compared to time[0]
 		dtime[1] = time[1] - time[0];
@@ -161,6 +150,17 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 			dtime[6] = dtime[1] + h * ((7. - sqrt(21)) / 14.);
 			dtime[7] = dtime[1] + h * ((7. + sqrt(21)) / 14.);
 			dtime[8] = dtime[1] + h;
+
+#ifdef __SaveRateOpt
+			if ((nstate[6] + h) > config_data->start_time_save)
+			{
+				if (calc_save_factor(config_data, dir_SSB, &body[1], f[0]))
+				{
+					printf("\n\nerror: Sun missing.");
+					return 1;
+				}
+			}
+#endif
 
 			for (j = 2; j < 9; j++)
 			{

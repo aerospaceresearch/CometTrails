@@ -823,6 +823,10 @@ int read_configuration(configuration_values *config_data)
 			config_data->n = 10;
 		}
 	}
+#ifdef __SaveRateOpt
+	// Initialize optimized n value with normal n value
+	config_data->n_opt = config_data->n;
+#endif
 
 	//Set which particle to start and end with (particle number, from 1 to the number of particles in the input file)
 	config_data->first_particle_number = config.fpnum;
