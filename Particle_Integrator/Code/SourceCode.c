@@ -71,8 +71,42 @@ int convert_results_into_binary(configuration_values config_data, int particles_
 //Main Program
 int main(void)
 {
-	//Print version
+	// Print version
 	printf("ParticleIntegrator version " PI_VERSION_MAJOR "." PI_VERSION_MINOR "\n");
+	// Print build type
+#ifdef RELTYPEDEB
+	printf("\n Debug build");
+#endif
+#ifdef RELTYPERWDI
+	printf("\n Release build with debug symbols");
+#endif
+#ifdef RELTYPEREL
+	printf("\n Release build");
+#endif
+
+	// Print active options in debug builds
+#ifdef RELTYPERWDI || RELTYPEDEB
+	printf(", "__DATE__ " " __TIME__ "\n Options: ");
+#ifdef __WTIMING
+	printf("TIMING ");
+#endif // __WTIMING
+#ifdef __WTIMESTEP
+	printf("WTIMESTEP ");
+#endif // __WSTEPINFO
+#ifdef __ENDONTIME
+	printf("ENDONTIME ");
+#endif // __ENDONTIME
+#ifdef __PRD
+	printf("PRD ");
+#endif // __PRD
+#ifdef __SWD
+	printf("SWD ");
+#endif // __SWD
+#ifdef __SaveRateOpt
+	printf("SaveRateOpt ");
+#endif // __SaveRateOpt
+#endif // RELTYPERWDI || RELTYPEDEB
+	printf("\n");
 
 	//Create some variables
 	int j, e, p, g, c, error_code = 0, particles_count = 0, particles_done = 0, nCommentLines = 0;
@@ -823,6 +857,10 @@ int read_configuration(configuration_values *config_data)
 			config_data->n = 10;
 		}
 	}
+#ifdef __SaveRateOpt
+	// Initialize optimized n value with normal n value
+	config_data->n_opt = config_data->n;
+#endif
 
 	//Set which particle to start and end with (particle number, from 1 to the number of particles in the input file)
 	config_data->first_particle_number = config.fpnum;
