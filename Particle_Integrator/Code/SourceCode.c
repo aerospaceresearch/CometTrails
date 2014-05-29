@@ -66,68 +66,35 @@ bool particle_already_processed(int p, char already_done_path[]);
 bool particle_incomplete(char outputpath[], SpiceDouble *nstate);
 int read_configuration(configuration_values *config_data);
 int convert_results_into_binary(configuration_values config_data, int particles_count, double *multiplication_factor, char already_done_path[]);
-
+void printinfo();
 
 //Main Program
 int main(void)
 {
-	// Print version
-	printf("ParticleIntegrator version " PI_VERSION_MAJOR "." PI_VERSION_MINOR "\n");
-	// Print build type
-#ifdef RELTYPEDEB
-	printf("\n Debug build");
-#endif
-#ifdef RELTYPERWDI
-	printf("\n Release build with debug symbols");
-#endif
-#ifdef RELTYPEREL
-	printf("\n Release build");
-#endif
-
-	// Print active options in debug builds
-#ifdef RELTYPERWDI || RELTYPEDEB
-	printf(", "__DATE__ " " __TIME__ "\n Options: ");
-#ifdef __WTIMING
-	printf("TIMING ");
-#endif // __WTIMING
-#ifdef __WTIMESTEP
-	printf("WTIMESTEP ");
-#endif // __WSTEPINFO
-#ifdef __ENDONTIME
-	printf("ENDONTIME ");
-#endif // __ENDONTIME
-#ifdef __PRD
-	printf("PRD ");
-#endif // __PRD
-#ifdef __SWD
-	printf("SWD ");
-#endif // __SWD
-#ifdef __SaveRateOpt
-	printf("SaveRateOpt ");
-#endif // __SaveRateOpt
-#endif // RELTYPERWDI || RELTYPEDEB
-	printf("\n");
+	// Version and build info output
+	printinfo();
 
 	//Create some variables
 	int j, e, p, g, c, error_code = 0, particles_count = 0, particles_done = 0, nCommentLines = 0;
 	char temp[260], *next_token = NULL, already_done_path[260] = "INPUT" OS_SEP "processed_particles.txt";
 	bool commentLine = false;
-	configuration_values config_data;
 
-	// Initialize
-	config_data.algorithm = 0;
-	sprintf_s(config_data.inputfpath, 260, "");
-	sprintf_s(config_data.outputpath, 260, "OUTPUT" OS_SEP);
-	config_data.number_of_threads = 0;
-	config_data.final_time = 0.;
-	config_data.start_time_save = 0.;
-	config_data.dv_step = 0.;
-	config_data.e_target = 0.;
-	config_data.first_particle_number = 0;
-	config_data.particle_mass = 0.;
-	config_data.particle_density = 0.;
-	config_data.particle_radius = 0.;
-	config_data.save_as_binary = 0;
+	// Initialize config_data
+	configuration_values config_data = 
+	{
+		.algorithm = 0,
+		.outputpath = "OUTPUT" OS_SEP,
+		.number_of_threads = 0,
+		.final_time = 0.,
+		.start_time_save = 0.,
+		.dv_step = 0.,
+		.e_target = 0.,
+		.first_particle_number = 0,
+		.particle_mass = 0.,
+		.particle_density = 0.,
+		.particle_radius = 0.,
+		.save_as_binary = 0
+	};
 	
 	//Load Spice kernels
 	printf("\nLoading kernels...		");
@@ -723,31 +690,38 @@ static int handler(void* user, const char* section, const char* name, const char
 
 int read_configuration(configuration_values *config_data)
 {
-	char temp[260], *token, *next_token = NULL, inputpath[260] = ("INPUT" OS_SEP), configpath[260] = "";
+	char temp[260] = "", *token, *next_token = NULL, inputpath[260] = ("INPUT" OS_SEP), configpath[260] = "";
 	SpiceInt dim, j;
-	configuration_readout config;
 	SpiceDouble mult = 0.0;
 
 	sprintf_s(configpath, 260, "%s%s", inputpath, "configuration.ini");
 
-	// Set default values
-	config.algo = "RK4";
-	config.ssbc = 0;
-	config.finaltime = "";
-	config.starttimes = "1 JAN 1000";
-	config.nbodys = 0;
-	config.bodysid = "";
-	config.dvstep = "10e-3";
-	config.etarget = "10e-18";
-	config.mult = "20.";
-	config.nthreads = 1;
-	config.savebin = 0;
-	config.inputfn = "";
-	config.outputfn = "default";
-	config.pmass = "0.";
-	config.pdensity = 1000;
-	config.q_pr = "1.";
-	config.fpnum = 1;
+	// Set default values: initialize config struct
+	configuration_readout config =
+	{
+		/* Simulation */
+		.algo = "RK4",
+		.ssbc = 0,
+		.finaltime = "",
+		.starttimes = "1 JAN 1000",
+		.nbodys = 0,
+		.bodysid = "10",
+		.mult = "20.",
+		.nthreads = 1,
+		.savebin = 0,
+
+		/* Particles */
+		.inputfn = "",
+		.outputfn = "default",
+		.pmass = "0.",
+		.q_pr = "1.",
+		.pdensity = 1000,
+		.fpnum = 1,
+
+		/* Algorithm-specific */
+		.dvstep = "10e-3",
+		.etarget = "10e-18"
+	};
 
 	// Parse configuration file
 	if (ini_parse(configpath, handler, &config) < 0) {
@@ -1048,4 +1022,45 @@ int convert_results_into_binary(configuration_values config_data, int particles_
 		}
 	}
 	return 0;
+}
+
+
+void printinfo()
+{
+	// Print version
+	printf("ParticleIntegrator version " PI_VERSION_MAJOR "." PI_VERSION_MINOR "\n");
+	// Print build type
+#ifdef RELTYPEDEB
+	printf("\n Debug build");
+#endif
+#ifdef RELTYPERWDI
+	printf("\n Release build with debug symbols");
+#endif
+#ifdef RELTYPEREL
+	printf("\n Release build");
+#endif
+
+	// Print active options in debug builds
+#if defined(RELTYPERWDI) || defined(RELTYPEDEB)
+	printf(", "__DATE__ " " __TIME__ "\n Options: ");
+#ifdef __WTIMING
+	printf("TIMING ");
+#endif // __WTIMING
+#ifdef __WTIMESTEP
+	printf("WTIMESTEP ");
+#endif // __WSTEPINFO
+#ifdef __ENDONTIME
+	printf("ENDONTIME ");
+#endif // __ENDONTIME
+#ifdef __PRD
+	printf("PRD ");
+#endif // __PRD
+#ifdef __SWD
+	printf("SWD ");
+#endif // __SWD
+#ifdef __SaveRateOpt
+	printf("SaveRateOpt ");
+#endif // __SaveRateOpt
+#endif // RELTYPERWDI || RELTYPEDEB
+	printf("\n");
 }
