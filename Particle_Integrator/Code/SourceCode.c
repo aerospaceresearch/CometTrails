@@ -250,6 +250,7 @@ int main(void)
 	fopen_s(&already_done, already_done_path, "r+");
 	if (already_done == NULL)
 	{
+		printf("\n\n First run. Creating processed_particles.txt");
 		for (e = 0; e < 3; e++)
 		{
 			fopen_s(&already_done, already_done_path, "w");
@@ -423,7 +424,7 @@ int main(void)
 						if (e == 2)
 						{
 							//err = 1;
-							printf("\n\nerror: could not write to progress.txt	(non-relevant)");
+							printf("\n\nwarning: could not write to progress.txt	(non-relevant)");
 							break;
 						}
 					}
@@ -507,7 +508,7 @@ int main(void)
 bool particle_already_processed(int p, char already_done_path[])
 {
 	FILE* check;
-	char temp[6] = "";
+	char temp[16] = "";
 	int particle_ID;
 	bool answer = false;
 #pragma omp critical(ALREADYDONE)
@@ -515,7 +516,7 @@ bool particle_already_processed(int p, char already_done_path[])
 		fopen_s(&check, already_done_path, "r");
 		if (check != NULL)
 		{
-			while (fgets(temp, 6, check) != NULL)
+			while (fgets(temp, 16, check) != NULL)
 			{
 				sscanf(temp, "%d", &particle_ID);
 				if (particle_ID == p)
@@ -524,6 +525,10 @@ bool particle_already_processed(int p, char already_done_path[])
 				}
 			}
 			fclose(check);
+		}
+		else
+		{
+			printf("\n\nwarning: could not access processed_particles.txt");
 		}
 	}
 
