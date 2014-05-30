@@ -116,6 +116,7 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 		if (initTime + dt > config_data->final_time)
 		{
 			dt = config_data->final_time - initTime;
+			dt2 = dt / 2;
 		}
 #endif // __ENDONTIME
 
