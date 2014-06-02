@@ -911,7 +911,7 @@ int convert_results_into_binary(configuration_values config_data, int particles_
 	result_array[0][1] = (config_data.first_particle_number + particles_count - 1);
 	result_array[0][2] = (float)config_data.particle_mass;
 	result_array[0][3] = (float)config_data.particle_density;
-	result_array[0][4] = 0;
+	result_array[0][4] = (float)config_data.beta;
 	result_array[0][5] = 0;
 	result_array[0][6] = 0;
 
@@ -999,8 +999,7 @@ int convert_results_into_binary(configuration_values config_data, int particles_
 	}
 	//Save result_array as binary file and delete text files
 	FILE *binout;
-	char binary_path[260] = "";
-	sprintf_s(binary_path, 260, "%s.ctwu", config_data.outputpath);
+	char binary_path[260] = "OUTPUT" OS_SEP "binary_output.ctwu";
 	fopen_s(&binout, binary_path, "wb");
 	if (binout == NULL)
 	{
