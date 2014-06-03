@@ -6,14 +6,14 @@
 int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *statefile)
 {
 	// Select body position function to use ((*bodyPosFP) for spice, return_SSB for (0,0,0))
-	void (*bodyPosFP)(SpiceInt, SpiceDouble, ConstSpiceChar *, ConstSpiceChar *, SpiceInt, SpiceDouble[3], SpiceDouble *);
+	void(*bodyPosFP)(ConstSpiceChar *, SpiceDouble, ConstSpiceChar *, ConstSpiceChar *, ConstSpiceChar *, SpiceDouble[3], SpiceDouble *);
 	if (config_data->ssb_centered == 1)
 	{
-		bodyPosFP = &return_SSB;
+		bodyPosFP = &return_SSBr;
 	}
 	else
 	{
-		bodyPosFP = &spkezp_c;
+		bodyPosFP = &spkezr_c;
 	}
 
 	// Create some variables
@@ -41,7 +41,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 	{
 		for (k = 0; k < 9; k++)
 		{
-			body[k][j] = (SpiceDouble *)malloc(3 * sizeof(SpiceDouble));
+			body[k][j] = (SpiceDouble *)malloc(6 * sizeof(SpiceDouble));
 
 			if (body[k][j] == NULL)
 			{
@@ -52,7 +52,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 #pragma omp critical(SPICE)
 		{
 			// Critical section is only executed on one thread at a time (spice is not threadsafe)
-			(*bodyPosFP)(config_data->body_int[j], nstate[6], "ECLIPJ2000", "NONE", 0, body[8][j], &lt);
+			(*bodyPosFP)(config_data->body_char[j], nstate[6], "ECLIPJ2000", "NONE", "0", body[8][j], &lt);
 		}
 	}
 
@@ -103,15 +103,13 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 
 		for (j = 0; j < config_data->N_bodys; j++)
 		{
-			// Save previous body state (body[1] is only a useful value from the second step onwards)
-			body[0][j][0] = body[1][j][0];
-			body[0][j][1] = body[1][j][1];
-			body[0][j][2] = body[1][j][2];
-
-			// Set new initial body state (body[8] is always a useful value)
-			body[1][j][0] = body[8][j][0];
-			body[1][j][1] = body[8][j][1];
-			body[1][j][2] = body[8][j][2];
+			for (k = 0; k < 6; k++)
+			{
+				// Save previous body state (body[1] is only a useful value from the second step onwards)
+				body[0][j][k] = body[1][j][k];
+				// Set new initial body state (body[8] is always a useful value)
+				body[1][j][k] = body[8][j][k];
+			}
 		}
 
 		// F1
@@ -175,7 +173,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 				{
 #pragma omp critical(SPICE)
 					{
-						(*bodyPosFP)(config_data->body_int[j], time[8], "ECLIPJ2000", "NONE", 0, body[8][j], &lt);
+						(*bodyPosFP)(config_data->body_char[j], time[8], "ECLIPJ2000", "NONE", "0", body[8][j], &lt);
 					}
 
 					// interp_body_states(configuration_values *config_data, SpiceDouble **body[9], SpiceDouble *dtime, SpiceDouble h, int order, int j)
@@ -194,7 +192,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 						{
 							for (m = 2; m < 8; m++) // body[8][j] already done above
 							{
-								(*bodyPosFP)(config_data->body_int[j], time[m], "ECLIPJ2000", "NONE", 0, body[m][j], &lt);
+								(*bodyPosFP)(config_data->body_char[j], time[m], "ECLIPJ2000", "NONE", "0", body[m][j], &lt);
 							}
 						}
 					}
@@ -206,7 +204,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 						//printf("\nbefore: h = %.8le, time[1] = %.8le, tEpsMax = %.8le, tEps = %.8le ",h,time[1],tEpsMax,tEps);
 						for (m = 2; m < 9; m++)
 						{
-							(*bodyPosFP)(config_data->body_int[j], time[m], "ECLIPJ2000", "NONE", 0, body[m][j], &lt);
+							(*bodyPosFP)(config_data->body_char[j], time[m], "ECLIPJ2000", "NONE", "0", body[m][j], &lt);
 						}
 					}
 				}

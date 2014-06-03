@@ -13,6 +13,7 @@ typedef struct
 	SpiceDouble start_time_save;	// [s]
 	int N_bodys;
 	int body_int[10];
+	ConstSpiceChar *body_char[10];
 	SpiceDouble GM[12];				// [km^3/s^2]
 	int n;
 	int n_opt;

@@ -191,17 +191,52 @@ int calc_pInfo(configuration_values *config_data)
 /* Function imitating spkezp_c but always returning the SSB as the body poisition.
    Only used when SSB_CENTERED	=1
    */
-void return_SSB(SpiceInt            targ,
-				SpiceDouble         et,
-				ConstSpiceChar    * ref,
-				ConstSpiceChar    * abcorr,
-				SpiceInt            obs,
-				SpiceDouble         ptarg[3],
-				SpiceDouble       * lt) // Most parameters are unreferenced but necessary for identical function calls to spkezp_c
+void return_SSB(	SpiceInt            targ,
+					SpiceDouble         et,
+					ConstSpiceChar    * ref,
+					ConstSpiceChar    * abcorr,
+					SpiceInt            obs,
+					SpiceDouble         ptarg[3],
+					SpiceDouble       * lt) // Most parameters are unreferenced but necessary for identical function calls to spkezp_c
 {
 	// not using: targ, et, ref, abcorr, obs, lt
+	(void)targ;
+	(void)et;
+	(void)ref;
+	(void)abcorr;
+	(void)obs;
+	(void)lt;
+
 	int j;
 	for (j = 0; j < 3; j++)
+	{
+		ptarg[j] = (SpiceDouble)0.0;
+	}
+}
+
+
+
+/* Function imitating spkezr_c but always returning the SSB as the body poisition and zero as the body speed.
+Only used when SSB_CENTERED	=1
+*/
+void return_SSBr(	ConstSpiceChar    * targ,
+					SpiceDouble         et,
+					ConstSpiceChar    * ref,
+					ConstSpiceChar    * abcorr,
+					ConstSpiceChar    * obs,
+					SpiceDouble         ptarg[6],
+					SpiceDouble       * lt) // Most parameters are unreferenced but necessary for identical function calls to spkezp_c
+{
+	// not using: targ, et, ref, abcorr, obs, lt
+	(void)targ;
+	(void)et;
+	(void)ref;
+	(void)abcorr;
+	(void)obs;
+	(void)lt;
+
+	int j;
+	for (j = 0; j < 6; j++)
 	{
 		ptarg[j] = (SpiceDouble)0.0;
 	}
@@ -258,7 +293,49 @@ int interp_body_states(configuration_values *config_data, SpiceDouble **(*body)[
 	}
 	else if (order == 5)
 	{
-		;
+		// allocate memory for coefficients
+		SpiceDouble **bod_a, **bod_b, **bod_c, **bod_d, **bod_e, **bod_f;
+		bod_a = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
+		bod_b = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
+		bod_c = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
+		bod_d = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
+		bod_e = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
+		bod_f = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
+		if (bod_a == NULL || bod_b == NULL || bod_c == NULL || bod_d == NULL || bod_e == NULL || bod_f == NULL)
+		{
+			printf("\n\nerror: could not allocate body coefficient array (OOM)");
+			return 1;
+		}
+		for (i = 0; i < config_data->N_bodys; i++)
+		{
+			bod_a[i] = malloc(3 * sizeof(SpiceDouble));
+			bod_b[i] = malloc(3 * sizeof(SpiceDouble));
+			bod_c[i] = malloc(3 * sizeof(SpiceDouble));
+			bod_d[i] = malloc(3 * sizeof(SpiceDouble));
+			bod_e[i] = malloc(3 * sizeof(SpiceDouble));
+			bod_f[i] = malloc(3 * sizeof(SpiceDouble));
+			if (bod_a[i] == NULL || bod_b[i] == NULL || bod_c[i] == NULL || bod_d[i] == NULL || bod_e[i] == NULL || bod_f[i] == NULL)
+			{
+				printf("\n\nerror: could not allocate body coefficient array (OOM)");
+				return 1;
+			}
+		}
+
+		// solving x = a + bt + ct^2 + dt^3 + et^4 + ft^5 for 5th order interpolation of body positions
+		for (k = 0; k < 3; k++) // loop x,y,z
+		{
+			bod_a[j][k] = (*body)[0][j][k];
+
+			bod_c[j][k] = ((((*body)[8][j][k] - bod_a[j][k]) / dtime[8]) - (((*body)[1][j][k] - bod_a[j][k]) / dtime[1])) / h;
+
+			bod_b[j][k] = ((*body)[1][j][k] - bod_a[j][k]) / dtime[1] - bod_c[j][k] * dtime[1];
+
+			// interpolate body states
+			for (m = 2; m < 8; m++)
+			{
+				(*body)[m][j][k] = bod_a[j][k] + (bod_b[j][k] + bod_c[j][k] * dtime[m]) * dtime[m];
+			}
+		}
 	}
 	else if (order == 0)
 	{
