@@ -206,3 +206,69 @@ void return_SSB(SpiceInt            targ,
 		ptarg[j] = (SpiceDouble)0.0;
 	}
 }
+
+
+
+/* Interpolate body states, either 2nd order or 5th order (coming soon), 
+   returns 1 if OOM and 2 if interpolation fails. 
+   */
+int interp_body_states(configuration_values *config_data, SpiceDouble **(*body)[9], SpiceDouble dtime[9], SpiceDouble h, int order, int j)
+{
+	int i, k, m;
+
+	if (order == 2)
+	{
+		// allocate memory for coefficients
+		SpiceDouble **bod_a, **bod_b, **bod_c;
+		bod_a = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
+		bod_b = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
+		bod_c = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
+		if (bod_a == NULL || bod_b == NULL || bod_c == NULL)
+		{
+			printf("\n\nerror: could not allocate body coefficient array (OOM)");
+			return 1;
+		}
+		for (i = 0; i < config_data->N_bodys; i++)
+		{
+			bod_a[i] = malloc(3 * sizeof(SpiceDouble));
+			bod_b[i] = malloc(3 * sizeof(SpiceDouble));
+			bod_c[i] = malloc(3 * sizeof(SpiceDouble));
+			if (bod_a[i] == NULL || bod_b[i] == NULL || bod_c[i] == NULL)
+			{
+				printf("\n\nerror: could not allocate body coefficient array (OOM)");
+				return 1;
+			}
+		}
+
+		// solving x = a + bt + ct^2 for quadratic interpolation of body positions
+		for (k = 0; k < 3; k++) // loop x,y,z
+		{
+			bod_a[j][k] = (*body)[0][j][k];
+
+			bod_c[j][k] = ((((*body)[8][j][k] - bod_a[j][k]) / dtime[8]) - (((*body)[1][j][k] - bod_a[j][k]) / dtime[1])) / h;
+
+			bod_b[j][k] = ((*body)[1][j][k] - bod_a[j][k]) / dtime[1] - bod_c[j][k] * dtime[1];
+
+			// interpolate body states
+			for (m = 2; m < 8; m++)
+			{
+				(*body)[m][j][k] = bod_a[j][k] + (bod_b[j][k] + bod_c[j][k] * dtime[m]) * dtime[m];
+			}
+		}
+	}
+	else if (order == 5)
+	{
+		;
+	}
+	else if (order == 0)
+	{
+		return 2;
+	}
+	else
+	{
+		printf("\n\nwarning: interpolation order not supported: %d", order);
+		return 2;
+	}
+
+	return 0;
+}

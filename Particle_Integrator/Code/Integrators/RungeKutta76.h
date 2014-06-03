@@ -17,7 +17,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 	}
 
 	// Create some variables
-	int stepcount = 0, substepcount = 0, j = 0, k = 0, m = 0;
+	int stepcount = 0, substepcount = 0, j = 0, k = 0, m = 0, interp_ret = 0;
 	SpiceDouble lt						// return value of spkezp_c that is not used
 		, h = 10000.0					// [s] (initial) step size
 		, hp2							// [s^2] h squared
@@ -178,19 +178,24 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 						(*bodyPosFP)(config_data->body_int[j], time[8], "ECLIPJ2000", "NONE", 0, body[8][j], &lt);
 					}
 
-					// solving x = a + bt + ct^2 for quadratic interpolation of body positions
-					for (k = 0; k < 3; k++) // loop x,y,z
+					// interp_body_states(configuration_values *config_data, SpiceDouble **body[9], SpiceDouble *dtime, SpiceDouble h, int order, int j)
+					interp_ret = interp_body_states(config_data, &body, dtime, h, 2, j);
+					if (interp_ret == 0) // all is well
 					{
-						bod_a[j][k] = body[0][j][k];
-
-						bod_c[j][k] = (((body[8][j][k] - bod_a[j][k]) / dtime[8]) - ((body[1][j][k] - bod_a[j][k]) / dtime[1])) / h;
-
-						bod_b[j][k] = (body[1][j][k] - bod_a[j][k]) / dtime[1] - bod_c[j][k] * dtime[1];
-
-						// interpolate body states
-						for (m = 2; m < 8; m++)
+						;
+					}
+					else if (interp_ret == 1) // OOM
+					{
+						return 1;
+					}
+					else if (interp_ret == 2) // cspice everything
+					{
+#pragma omp critical(SPICE) // Critical section is only executed on one thread at a time (spice is not threadsafe)
 						{
-							body[m][j][k] = bod_a[j][k] + (bod_b[j][k] + bod_c[j][k] * dtime[m]) * dtime[m];
+							for (m = 2; m < 8; m++) // body[8][j] already done above
+							{
+								(*bodyPosFP)(config_data->body_int[j], time[m], "ECLIPJ2000", "NONE", 0, body[m][j], &lt);
+							}
 						}
 					}
 				}
