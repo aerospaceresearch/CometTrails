@@ -64,12 +64,13 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 
 	// Body coefficient variable
 	SpiceDouble **body_c[6]; // positions 4-6 may not be used for order = 2, or none for order = 0
-
 	// Allocate memory for coefficients
 	if (interp_body_states_malloc(config_data, &body_c))
 	{
-		return 1;
+		return 1; // OOM
 	}
+
+	dtimepowers dtp;
 
 	dtime[0] = 0;
 
@@ -138,6 +139,8 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 			dtime[7] = dtime[1] + h * ((7. + sqrt(21)) / 14.);
 			dtime[8] = dtime[1] + h;
 
+			precompute_dtime_powers(config_data, &dtp, dtime);
+
 #ifdef __SaveRateOpt
 			if ((nstate[6] + h) > config_data->start_time_save)
 			{
@@ -161,20 +164,17 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 			{
 				if (stepcount > 1) // not during the first two steps
 				{
+					// Get new end state of body
 #pragma omp critical(SPICE)
 					{
 						(*bodyPosFP)(config_data->body_char[j], time[8], "ECLIPJ2000", "NONE", "0", body[8][j], &lt);
 					}
 
 					// Interpolate body states
-					interp_ret = interp_body_states(config_data, &body, &body_c, dtime, h, j);
+					interp_ret = interp_body_states(config_data, &body, &body_c, dtime, &dtp, h, j);
 					if (interp_ret == 0) // all is well
 					{
 						;
-					}
-					else if (interp_ret == 1) // OOM
-					{
-						return 1;
 					}
 					else if (interp_ret == 2) // cspice everything
 					{

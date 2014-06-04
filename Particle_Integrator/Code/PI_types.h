@@ -55,3 +55,22 @@ typedef struct
 	const char* dvstep;
 	const char* etarget;
 } configuration_readout;
+
+/* struct type for precomputed dtime powers for interpolation */
+typedef struct
+{
+	SpiceDouble dtime1p2;
+	SpiceDouble dtime1p3;
+	SpiceDouble dtime1p4;
+	SpiceDouble dtime1p5;
+	SpiceDouble dtime1p6;
+
+	SpiceDouble dtime8p2;
+	SpiceDouble dtime8p3;
+	SpiceDouble dtime8p4;
+	SpiceDouble dtime8p5;
+	SpiceDouble dtime8p6;
+
+	SpiceDouble dtime81;
+	SpiceDouble dtime81p2;
+} dtimepowers;

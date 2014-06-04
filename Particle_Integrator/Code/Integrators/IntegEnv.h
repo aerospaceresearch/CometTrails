@@ -297,6 +297,7 @@ int interp_body_states_malloc(configuration_values *config_data, SpiceDouble **(
 }
 
 
+
 /* Free memory for variables in interp_body_states()
 */
 int interp_body_states_free(configuration_values *config_data, SpiceDouble **(*body_c)[6])
@@ -344,7 +345,7 @@ int interp_body_states_free(configuration_values *config_data, SpiceDouble **(*b
 /* Interpolate body states, either 2nd order or 5th order (coming soon), 
    returns 1 if OOM and 2 if interpolation fails. 
    */
-int interp_body_states(configuration_values *config_data, SpiceDouble **(*body)[9], SpiceDouble **(*body_c)[6], SpiceDouble dtime[9], SpiceDouble h, int j)
+int interp_body_states(configuration_values *config_data, SpiceDouble **(*body)[9], SpiceDouble **(*body_c)[6], SpiceDouble dtime[9], dtimepowers *dtp, SpiceDouble h, int j)
 {
 	int k, m;
 
@@ -368,62 +369,52 @@ int interp_body_states(configuration_values *config_data, SpiceDouble **(*body)[
 	}
 	else if (config_data->interp_order == 5)
 	{
-		// Pre-compute power dtimes
-		SpiceDouble dtime1p2 = dtime[1] * dtime[1];
-		SpiceDouble dtime1p3 = dtime1p2 * dtime[1];
-		SpiceDouble dtime1p4 = dtime1p3 * dtime[1];
-		SpiceDouble dtime1p5 = dtime1p4 * dtime[1];
-		SpiceDouble dtime1p6 = dtime1p5 * dtime[1];
-
-		SpiceDouble dtime8p2 = dtime[8] * dtime[8];
-		SpiceDouble dtime8p3 = dtime8p2 * dtime[8];
-		SpiceDouble dtime8p4 = dtime8p3 * dtime[8];
-		SpiceDouble dtime8p5 = dtime8p4 * dtime[8];
-		SpiceDouble dtime8p6 = dtime8p5 * dtime[8];
-
-		SpiceDouble dtime81 = (dtime[1] - dtime[8]);
-		SpiceDouble dtime81p2 = dtime81 * dtime81;
-
 		SpiceDouble sig[11]; // Precomputed variables needed in more than one formula
-		sig[0] = dtime[1] * dtime8p3*(dtime1p2*dtime[8] - dtime1p3)*dtime81p2;
+		sig[0] = dtime[1] * dtp->dtime8p3*(dtp->dtime1p2*dtime[8] - dtp->dtime1p3)*dtp->dtime81p2;
 
 		// Solving x = a + bt + ct^2 + dt^3 + et^4 + ft^5 for 5th order interpolation of body positions
 		for (k = 0; k < 3; k++) // loop x,y,z
 		{
 			// Pre-compute a few things that are needed twice
-			sig[1] = 4 * dtime1p4*dtime8p2 * (*body)[0][j][k + 3];
-			sig[2] = 4 * dtime1p2*dtime8p4 * (*body)[0][j][k + 3];
-			sig[3] = dtime1p4*dtime8p2 * (*body)[8][j][k + 3];
-			sig[4] = dtime1p2*dtime8p4 * (*body)[1][j][k + 3];
-			sig[5] = 2 * dtime1p5*dtime[8] * (*body)[0][j][k + 3];
-			sig[6] = 2 * dtime[1] * dtime8p5 * (*body)[0][j][k + 3];
-			sig[7] = 5 * dtime1p4*dtime[8] * (*body)[8][j][k];
-			sig[8] = 5 * dtime[1] * dtime8p4 * (*body)[1][j][k];
-			sig[9] = 5 * dtime1p4*dtime[8] * (*body)[0][j][k];
-			sig[10] = 5 * dtime[1] * dtime8p4 * (*body)[0][j][k];
+			sig[1] = 4 * dtp->dtime1p4*dtp->dtime8p2 * (*body)[0][j][k + 3];
+			sig[2] = 4 * dtp->dtime1p2*dtp->dtime8p4 * (*body)[0][j][k + 3];
+			sig[3] = dtp->dtime1p4*dtp->dtime8p2 * (*body)[8][j][k + 3];
+			sig[4] = dtp->dtime1p2*dtp->dtime8p4 * (*body)[1][j][k + 3];
+			sig[5] = 2 * dtp->dtime1p5*dtime[8] * (*body)[0][j][k + 3];
+			sig[6] = 2 * dtime[1] * dtp->dtime8p5 * (*body)[0][j][k + 3];
+			sig[7] = 5 * dtp->dtime1p4*dtime[8] * (*body)[8][j][k];
+			sig[8] = 5 * dtime[1] * dtp->dtime8p4 * (*body)[1][j][k];
+			sig[9] = 5 * dtp->dtime1p4*dtime[8] * (*body)[0][j][k];
+			sig[10] = 5 * dtime[1] * dtp->dtime8p4 * (*body)[0][j][k];
 
 			(*body_c)[0][j][k] = (*body)[0][j][k];
 
 			(*body_c)[1][j][k] = (*body)[0][j][k + 3]; // k+3 gives the speed vector instead of the position vector
 
-			(*body_c)[2][j][k] = -(3 * dtime1p5 * (*body)[0][j][k] - 3 * dtime8p5 * (*body)[0][j][k] - 3 * dtime1p5 * (*body)[8][j][k] + 3 * dtime8p5 * (*body)[1][j][k] - sig[6] + sig[5]
-				- dtime[1] * dtime8p5 * (*body)[1][j][k + 3] + dtime1p5*dtime[8] * (*body)[8][j][k + 3] + sig[2] - sig[1] + sig[4] - sig[3]
-				+ sig[10] - sig[9] - sig[8] + sig[7]) / (dtime1p2*dtime8p2*dtime81p2*dtime81);
+			(*body_c)[2][j][k] = -(3 * dtp->dtime1p5 * (*body)[0][j][k] - 3 * dtp->dtime8p5 * (*body)[0][j][k] - 3 * dtp->dtime1p5 * (*body)[8][j][k] + 3 * dtp->dtime8p5 * (*body)[1][j][k] - sig[6] + sig[5]
+				- dtime[1] * dtp->dtime8p5 * (*body)[1][j][k + 3] + dtp->dtime1p5*dtime[8] * (*body)[8][j][k + 3] + sig[2] - sig[1] + sig[4] - sig[3]
+				+ sig[10] - sig[9] - sig[8] + sig[7]) / (dtp->dtime1p2*dtp->dtime8p2*dtp->dtime81p2*dtp->dtime81);
 
-			(*body_c)[3][j][k] = -(2 * dtime1p6 * (*body)[0][j][k] - 2 * dtime8p6 * (*body)[0][j][k] - 2 * dtime1p6 * (*body)[8][j][k] + 2 * dtime8p6 * (*body)[1][j][k] - dtime[1] * dtime8p6 * (*body)[0][j][k + 3] + dtime1p6*dtime[8] * (*body)[0][j][k + 3] - dtime[1] * dtime8p6 * (*body)[1][j][k + 3]
-				+ dtime1p6*dtime[8] * (*body)[8][j][k + 3] + 10 * dtime1p2*dtime8p4 * (*body)[0][j][k] - 10 * dtime1p4*dtime8p2 * (*body)[0][j][k] - 10 * dtime1p2*dtime8p4 * (*body)[1][j][k] + 10 * dtime1p4*dtime8p2 * (*body)[8][j][k] - dtime1p2*dtime8p5 * (*body)[0][j][k + 3]
-				+ 8 * dtime1p3*dtime8p4 * (*body)[0][j][k + 3] - 8 * dtime1p4*dtime8p3 * (*body)[0][j][k + 3] + dtime1p5*dtime8p2 * (*body)[0][j][k + 3] - dtime1p2*dtime8p5 * (*body)[1][j][k + 3] + 2 * dtime1p3*dtime8p4 * (*body)[1][j][k + 3] - 2 * dtime1p4*dtime8p3 * (*body)[8][j][k + 3]
-				+ dtime1p5*dtime8p2 * (*body)[8][j][k + 3] - 2 * dtime[1] * dtime8p5 * (*body)[0][j][k] + 2 * dtime1p5*dtime[8] * (*body)[0][j][k] + 2 * dtime[1] * dtime8p5 * (*body)[1][j][k] - 2 * dtime1p5*dtime[8] * (*body)[8][j][k]) / (sig[0]);
+			(*body_c)[3][j][k] = -(2 * dtp->dtime1p6 * (*body)[0][j][k] - 2 * dtp->dtime8p6 * (*body)[0][j][k] - 2 * dtp->dtime1p6 * (*body)[8][j][k] + 2 * dtp->dtime8p6 * (*body)[1][j][k]
+				- dtime[1] * dtp->dtime8p6 * (*body)[0][j][k + 3] + dtp->dtime1p6*dtime[8] * (*body)[0][j][k + 3] - dtime[1] * dtp->dtime8p6 * (*body)[1][j][k + 3]	+ dtp->dtime1p6*dtime[8] * (*body)[8][j][k + 3]
+				+ 10 * dtp->dtime1p2*dtp->dtime8p4 * (*body)[0][j][k] - 10 * dtp->dtime1p4*dtp->dtime8p2 * (*body)[0][j][k] - 10 * dtp->dtime1p2*dtp->dtime8p4 * (*body)[1][j][k]
+				+ 10 * dtp->dtime1p4*dtp->dtime8p2 * (*body)[8][j][k] - dtp->dtime1p2*dtp->dtime8p5 * (*body)[0][j][k + 3] + 8 * dtp->dtime1p3*dtp->dtime8p4 * (*body)[0][j][k + 3]
+				- 8 * dtp->dtime1p4*dtp->dtime8p3 * (*body)[0][j][k + 3] + dtp->dtime1p5*dtp->dtime8p2 * (*body)[0][j][k + 3] - dtp->dtime1p2*dtp->dtime8p5 * (*body)[1][j][k + 3]
+				+ 2 * dtp->dtime1p3*dtp->dtime8p4 * (*body)[1][j][k + 3] - 2 * dtp->dtime1p4*dtp->dtime8p3 * (*body)[8][j][k + 3] + dtp->dtime1p5*dtp->dtime8p2 * (*body)[8][j][k + 3]
+				- 2 * dtime[1] * dtp->dtime8p5 * (*body)[0][j][k] + 2 * dtp->dtime1p5*dtime[8] * (*body)[0][j][k] + 2 * dtime[1] * dtp->dtime8p5 * (*body)[1][j][k]
+				- 2 * dtp->dtime1p5*dtime[8] * (*body)[8][j][k]) / (sig[0]);
 
-			(*body_c)[4][j][k] = (4 * dtime1p5 * (*body)[0][j][k] - 4 * dtime8p5 * (*body)[0][j][k] - 4 * dtime1p5 * (*body)[8][j][k] + 4 * dtime8p5 * (*body)[1][j][k] - sig[6] + sig[5] - 2 * dtime[1] * dtime8p5 * (*body)[1][j][k + 3]
-				+ 2 * dtime1p5*dtime[8] * (*body)[8][j][k + 3] + 5 * dtime1p2*dtime8p3 * (*body)[0][j][k] - 5 * dtime1p3*dtime8p2 * (*body)[0][j][k] - 5 * dtime1p2*dtime8p3 * (*body)[1][j][k] + 5 * dtime1p3*dtime8p2 * (*body)[8][j][k] + sig[2]
-				- sig[1] + sig[4] + dtime1p3*dtime8p3 * (*body)[1][j][k + 3] - dtime1p3*dtime8p3 * (*body)[8][j][k + 3] - sig[3] + sig[10] - sig[9]
+			(*body_c)[4][j][k] = (4 * dtp->dtime1p5 * (*body)[0][j][k] - 4 * dtp->dtime8p5 * (*body)[0][j][k] - 4 * dtp->dtime1p5 * (*body)[8][j][k] + 4 * dtp->dtime8p5 * (*body)[1][j][k]
+				- sig[6] + sig[5] - 2 * dtime[1] * dtp->dtime8p5 * (*body)[1][j][k + 3] + 2 * dtp->dtime1p5*dtime[8] * (*body)[8][j][k + 3] + 5 * dtp->dtime1p2*dtp->dtime8p3 * (*body)[0][j][k]
+				- 5 * dtp->dtime1p3*dtp->dtime8p2 * (*body)[0][j][k] - 5 * dtp->dtime1p2*dtp->dtime8p3 * (*body)[1][j][k] + 5 * dtp->dtime1p3*dtp->dtime8p2 * (*body)[8][j][k] + sig[2]
+				- sig[1] + sig[4] + dtp->dtime1p3*dtp->dtime8p3 * (*body)[1][j][k + 3] - dtp->dtime1p3*dtp->dtime8p3 * (*body)[8][j][k + 3] - sig[3] + sig[10] - sig[9]
 				- sig[8] + sig[7]) / (sig[0]);
 
-			(*body_c)[5][j][k] = (2 * dtime1p4 * (*body)[0][j][k] - 2 * dtime8p4 * (*body)[0][j][k] - 2 * dtime1p4 * (*body)[8][j][k]
-				+ 2 * dtime8p4 * (*body)[1][j][k] - dtime[1] * dtime8p4 * (*body)[0][j][k + 3] + dtime1p4*dtime[8] * (*body)[0][j][k + 3] - dtime[1] * dtime8p4 * (*body)[1][j][k + 3] + dtime1p4*dtime[8] * (*body)[8][j][k + 3] + 3 * dtime1p2*dtime8p3 * (*body)[0][j][k + 3]
-				- 3 * dtime1p3*dtime8p2 * (*body)[0][j][k + 3] + dtime1p2*dtime8p3 * (*body)[1][j][k + 3] - dtime1p3*dtime8p2 * (*body)[8][j][k + 3] + 4 * dtime[1] * dtime8p3 * (*body)[0][j][k] - 4 * dtime1p3*dtime[8] * (*body)[0][j][k]
-				- 4 * dtime[1] * dtime8p3 * (*body)[1][j][k] + 4 * dtime1p3*dtime[8] * (*body)[8][j][k]) / (dtime1p3*dtime8p3*dtime81*(dtime1p2 - 2 * dtime[1] * dtime[8] + dtime8p2));
+			(*body_c)[5][j][k] = (2 * dtp->dtime1p4 * (*body)[0][j][k] - 2 * dtp->dtime8p4 * (*body)[0][j][k] - 2 * dtp->dtime1p4 * (*body)[8][j][k] + 2 * dtp->dtime8p4 * (*body)[1][j][k]
+				- dtime[1] * dtp->dtime8p4 * (*body)[0][j][k + 3] + dtp->dtime1p4*dtime[8] * (*body)[0][j][k + 3] - dtime[1] * dtp->dtime8p4 * (*body)[1][j][k + 3]
+				+ dtp->dtime1p4*dtime[8] * (*body)[8][j][k + 3] + 3 * dtp->dtime1p2*dtp->dtime8p3 * (*body)[0][j][k + 3] - 3 * dtp->dtime1p3*dtp->dtime8p2 * (*body)[0][j][k + 3]
+				+ dtp->dtime1p2*dtp->dtime8p3 * (*body)[1][j][k + 3] - dtp->dtime1p3*dtp->dtime8p2 * (*body)[8][j][k + 3] + 4 * dtime[1] * dtp->dtime8p3 * (*body)[0][j][k] - 4 * dtp->dtime1p3*dtime[8] * (*body)[0][j][k]
+				- 4 * dtime[1] * dtp->dtime8p3 * (*body)[1][j][k] + 4 * dtp->dtime1p3*dtime[8] * (*body)[8][j][k]) / (dtp->dtime1p3*dtp->dtime8p3*dtp->dtime81*(dtp->dtime1p2 - 2 * dtime[1] * dtime[8] + dtp->dtime8p2));
 
 			// Interpolate body states
 			for (m = 2; m < 8; m++)
@@ -443,4 +434,34 @@ int interp_body_states(configuration_values *config_data, SpiceDouble **(*body)[
 	}
 
 	return 0;
+}
+
+
+
+/* Precompute powers of time differences used in interp_body_states for order = 5
+   */
+void precompute_dtime_powers(configuration_values *config_data, dtimepowers *dtp, SpiceDouble dtime[9])
+{
+	if (config_data->interp_order == 5)
+	{
+		// Pre-compute power dtimes
+
+		// dtime[1]
+		dtp->dtime1p2 = dtime[1] * dtime[1]; // ^2
+		dtp->dtime1p3 = dtp->dtime1p2 * dtime[1]; // ^3
+		dtp->dtime1p4 = dtp->dtime1p3 * dtime[1]; // ^4
+		dtp->dtime1p5 = dtp->dtime1p4 * dtime[1]; // ^5
+		dtp->dtime1p6 = dtp->dtime1p5 * dtime[1]; // ^6
+
+		// dtime[8]
+		dtp->dtime8p2 = dtime[8] * dtime[8]; // ^2
+		dtp->dtime8p3 = dtp->dtime8p2 * dtime[8]; // ^3
+		dtp->dtime8p4 = dtp->dtime8p3 * dtime[8]; // ^4
+		dtp->dtime8p5 = dtp->dtime8p4 * dtime[8]; // ^5
+		dtp->dtime8p6 = dtp->dtime8p5 * dtime[8]; // ^6
+
+		// dtime[1] - dtime[8]
+		dtp->dtime81 = (dtime[1] - dtime[8]);
+		dtp->dtime81p2 = dtp->dtime81 * dtp->dtime81; // ^2
+	}
 }
