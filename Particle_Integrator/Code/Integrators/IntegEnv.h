@@ -217,8 +217,8 @@ void return_SSB(	SpiceInt            targ,
 
 
 /* Function imitating spkezr_c but always returning the SSB as the body poisition and zero as the body speed.
-Only used when SSB_CENTERED	=1
-*/
+   Only used when SSB_CENTERED	=1
+   */
 void return_SSBr(	ConstSpiceChar    * targ,
 					SpiceDouble         et,
 					ConstSpiceChar    * ref,
@@ -247,7 +247,7 @@ void return_SSBr(	ConstSpiceChar    * targ,
 /* Interpolate body states, either 2nd order or 5th order (coming soon), 
    returns 1 if OOM and 2 if interpolation fails. 
    */
-int interp_body_states(configuration_values *config_data, SpiceDouble **(*body)[9], SpiceDouble dtime[9], SpiceDouble h, int order, int j)
+int interp_body_states(configuration_values *config_data, SpiceDouble * * (*body)[9], SpiceDouble dtime[9], SpiceDouble h, int order, int j)
 {
 	int i, k, m;
 
@@ -293,6 +293,25 @@ int interp_body_states(configuration_values *config_data, SpiceDouble **(*body)[
 	}
 	else if (order == 5)
 	{
+		// Pre-compute power dtimes
+		SpiceDouble dtime1p2 = dtime[1] * dtime[1];
+		SpiceDouble dtime1p3 = dtime1p2 * dtime[1];
+		SpiceDouble dtime1p4 = dtime1p3 * dtime[1];
+		SpiceDouble dtime1p5 = dtime1p4 * dtime[1];
+		SpiceDouble dtime1p6 = dtime1p5 * dtime[1];
+
+		SpiceDouble dtime8p2 = dtime[8] * dtime[8];
+		SpiceDouble dtime8p3 = dtime8p2 * dtime[8];
+		SpiceDouble dtime8p4 = dtime8p3 * dtime[8];
+		SpiceDouble dtime8p5 = dtime8p4 * dtime[8];
+		SpiceDouble dtime8p6 = dtime8p5 * dtime[8];
+
+		SpiceDouble dtime81 = (dtime[1] - dtime[8]);
+		SpiceDouble dtime81p2 = dtime81 * dtime81;
+
+		SpiceDouble sig[11]; // Precomputed variables needed in more than one formula
+		sig[0] = dtime[1] * dtime8p3*(dtime1p2*dtime[8] - dtime1p3)*dtime81p2;
+
 		// allocate memory for coefficients
 		SpiceDouble **bod_a, **bod_b, **bod_c, **bod_d, **bod_e, **bod_f;
 		bod_a = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
@@ -324,16 +343,45 @@ int interp_body_states(configuration_values *config_data, SpiceDouble **(*body)[
 		// solving x = a + bt + ct^2 + dt^3 + et^4 + ft^5 for 5th order interpolation of body positions
 		for (k = 0; k < 3; k++) // loop x,y,z
 		{
+			// pre-compute a few things that are needed twice
+			sig[1] = 4 * dtime1p4*dtime8p2 * (*body)[0][j][k + 3];
+			sig[2] = 4 * dtime1p2*dtime8p4 * (*body)[0][j][k + 3];
+			sig[3] = dtime1p4*dtime8p2 * (*body)[8][j][k + 3];
+			sig[4] = dtime1p2*dtime8p4 * (*body)[1][j][k + 3];
+			sig[5] = 2 * dtime1p5*dtime[8] * (*body)[0][j][k + 3];
+			sig[6] = 2 * dtime[1] * dtime8p5 * (*body)[0][j][k + 3];
+			sig[7] = 5 * dtime1p4*dtime[8] * (*body)[8][j][k];
+			sig[8] = 5 * dtime[1] * dtime8p4 * (*body)[1][j][k];
+			sig[9] = 5 * dtime1p4*dtime[8] * (*body)[0][j][k];
+			sig[10] = 5 * dtime[1] * dtime8p4 * (*body)[0][j][k];
+
 			bod_a[j][k] = (*body)[0][j][k];
 
-			bod_c[j][k] = ((((*body)[8][j][k] - bod_a[j][k]) / dtime[8]) - (((*body)[1][j][k] - bod_a[j][k]) / dtime[1])) / h;
+			bod_b[j][k] = (*body)[0][j][k + 3]; // k+3 gives the speed vector instead of the position vector
 
-			bod_b[j][k] = ((*body)[1][j][k] - bod_a[j][k]) / dtime[1] - bod_c[j][k] * dtime[1];
+			bod_c[j][k] = -(3 * dtime1p5 * (*body)[0][j][k] - 3 * dtime8p5 * (*body)[0][j][k] - 3 * dtime1p5 * (*body)[8][j][k] + 3 * dtime8p5 * (*body)[1][j][k] - sig[6] + sig[5]
+				- dtime[1] * dtime8p5 * (*body)[1][j][k + 3] + dtime1p5*dtime[8] * (*body)[8][j][k + 3] + sig[2] - sig[1] + sig[4] - sig[3]
+				+ sig[10] - sig[9] - sig[8] + sig[7]) / (dtime1p2*dtime8p2*dtime81p2*dtime81);
+
+			bod_d[j][k] = -(2 * dtime1p6 * (*body)[0][j][k] - 2 * dtime8p6 * (*body)[0][j][k] - 2 * dtime1p6 * (*body)[8][j][k] + 2 * dtime8p6 * (*body)[1][j][k] - dtime[1] * dtime8p6 * (*body)[0][j][k + 3] + dtime1p6*dtime[8] * (*body)[0][j][k + 3] - dtime[1] * dtime8p6 * (*body)[1][j][k + 3]
+				+ dtime1p6*dtime[8] * (*body)[8][j][k + 3] + 10 * dtime1p2*dtime8p4 * (*body)[0][j][k] - 10 * dtime1p4*dtime8p2 * (*body)[0][j][k] - 10 * dtime1p2*dtime8p4 * (*body)[1][j][k] + 10 * dtime1p4*dtime8p2 * (*body)[8][j][k] - dtime1p2*dtime8p5 * (*body)[0][j][k + 3]
+				+ 8 * dtime1p3*dtime8p4 * (*body)[0][j][k + 3] - 8 * dtime1p4*dtime8p3 * (*body)[0][j][k + 3] + dtime1p5*dtime8p2 * (*body)[0][j][k + 3] - dtime1p2*dtime8p5 * (*body)[1][j][k + 3] + 2 * dtime1p3*dtime8p4 * (*body)[1][j][k + 3] - 2 * dtime1p4*dtime8p3 * (*body)[8][j][k + 3]
+				+ dtime1p5*dtime8p2 * (*body)[8][j][k + 3] - 2 * dtime[1] * dtime8p5 * (*body)[0][j][k] + 2 * dtime1p5*dtime[8] * (*body)[0][j][k] + 2 * dtime[1] * dtime8p5 * (*body)[1][j][k] - 2 * dtime1p5*dtime[8] * (*body)[8][j][k]) / (sig[0]);
+
+			bod_e[j][k] = (4 * dtime1p5 * (*body)[0][j][k] - 4 * dtime8p5 * (*body)[0][j][k] - 4 * dtime1p5 * (*body)[8][j][k] + 4 * dtime8p5 * (*body)[1][j][k] - sig[6] + sig[5] - 2 * dtime[1] * dtime8p5 * (*body)[1][j][k + 3]
+				+ 2 * dtime1p5*dtime[8] * (*body)[8][j][k + 3] + 5 * dtime1p2*dtime8p3 * (*body)[0][j][k] - 5 * dtime1p3*dtime8p2 * (*body)[0][j][k] - 5 * dtime1p2*dtime8p3 * (*body)[1][j][k] + 5 * dtime1p3*dtime8p2 * (*body)[8][j][k] + sig[2]
+				- sig[1] + sig[4] + dtime1p3*dtime8p3 * (*body)[1][j][k + 3] - dtime1p3*dtime8p3 * (*body)[8][j][k + 3] - sig[3] + sig[10] - sig[9]
+				- sig[8] + sig[7]) / (sig[0]);
+
+			bod_f[j][k] = (2 * dtime1p4 * (*body)[0][j][k] - 2 * dtime8p4 * (*body)[0][j][k] - 2 * dtime1p4 * (*body)[8][j][k]
+				+ 2 * dtime8p4 * (*body)[1][j][k] - dtime[1] * dtime8p4 * (*body)[0][j][k + 3] + dtime1p4*dtime[8] * (*body)[0][j][k + 3] - dtime[1] * dtime8p4 * (*body)[1][j][k + 3] + dtime1p4*dtime[8] * (*body)[8][j][k + 3] + 3 * dtime1p2*dtime8p3 * (*body)[0][j][k + 3]
+				- 3 * dtime1p3*dtime8p2 * (*body)[0][j][k + 3] + dtime1p2*dtime8p3 * (*body)[1][j][k + 3] - dtime1p3*dtime8p2 * (*body)[8][j][k + 3] + 4 * dtime[1] * dtime8p3 * (*body)[0][j][k] - 4 * dtime1p3*dtime[8] * (*body)[0][j][k]
+				- 4 * dtime[1] * dtime8p3 * (*body)[1][j][k] + 4 * dtime1p3*dtime[8] * (*body)[8][j][k]) / (dtime1p3*dtime8p3*dtime81*(dtime1p2 - 2 * dtime[1] * dtime[8] + dtime8p2));
 
 			// interpolate body states
 			for (m = 2; m < 8; m++)
 			{
-				(*body)[m][j][k] = bod_a[j][k] + (bod_b[j][k] + bod_c[j][k] * dtime[m]) * dtime[m];
+				(*body)[m][j][k] = bod_a[j][k] + (bod_b[j][k] + (bod_c[j][k] + (bod_d[j][k] + (bod_e[j][k] + bod_f[j][k] * dtime[m]) * dtime[m]) * dtime[m]) * dtime[m]) * dtime[m];
 			}
 		}
 	}

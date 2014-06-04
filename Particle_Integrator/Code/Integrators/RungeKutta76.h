@@ -177,7 +177,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 					}
 
 					// interp_body_states(configuration_values *config_data, SpiceDouble **body[9], SpiceDouble *dtime, SpiceDouble h, int order, int j)
-					interp_ret = interp_body_states(config_data, &body, dtime, h, 2, j);
+					interp_ret = interp_body_states(config_data, &body, dtime, h, 5, j);
 					if (interp_ret == 0) // all is well
 					{
 						;
