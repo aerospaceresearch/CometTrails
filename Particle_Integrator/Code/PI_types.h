@@ -28,6 +28,7 @@ typedef struct
 	// Algorithm-specific
 	SpiceDouble dv_step;			// [km/s^2]
 	SpiceDouble e_target;			// [km]
+	int interp_order;
 } configuration_values;
 
 /* struct type for the config file readout */

@@ -5,6 +5,8 @@
 
 int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *statefile)
 {
+	config_data->interp_order = 5; // #todo# should be set via config
+
 	// Select body position function to use ((*bodyPosFP) for spice, return_SSB for (0,0,0))
 	void(*bodyPosFP)(ConstSpiceChar *, SpiceDouble, ConstSpiceChar *, ConstSpiceChar *, ConstSpiceChar *, SpiceDouble[3], SpiceDouble *);
 	if (config_data->ssb_centered == 1)
@@ -56,31 +58,18 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		}
 	}
 
-	// Create body interpolation coefficients
-	SpiceDouble **bod_a, **bod_b, **bod_c;
-	bod_a = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
-	bod_b = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
-	bod_c = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
-	if (bod_a == NULL || bod_b == NULL || bod_c == NULL)
-	{
-		printf("\n\nerror: could not allocate body coefficient array (OOM)");
-		return 1;
-	}
-	for (j = 0; j < config_data->N_bodys; j++)
-	{
-		bod_a[j] = malloc(3 * sizeof(SpiceDouble));
-		bod_b[j] = malloc(3 * sizeof(SpiceDouble));
-		bod_c[j] = malloc(3 * sizeof(SpiceDouble));
-		if (bod_a[j] == NULL || bod_b[j] == NULL || bod_c[j] == NULL)
-		{
-			printf("\n\nerror: could not allocate body coefficient array (OOM)");
-			return 1;
-		}
-	}
-
 	// Create some more variables
 	SpiceDouble initPos[3], initVel[3], dir_SSB[3], time[9], dtime[9];
 	SpiceDouble f[9][3];
+
+	// Body coefficient variable
+	SpiceDouble **body_c[6]; // positions 4-6 may not be used for order = 2, or none for order = 0
+
+	// Allocate memory for coefficients
+	if (interp_body_states_malloc(config_data, &body_c))
+	{
+		return 1;
+	}
 
 	dtime[0] = 0;
 
@@ -167,6 +156,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 
 			// Get body positions
 			// Instead of body[9], body[8] is just used below. They would always be identical. The same applies for dtime[8/9] and time[8/9]
+			
 			for (j = 0; j < config_data->N_bodys; j++)
 			{
 				if (stepcount > 1) // not during the first two steps
@@ -176,8 +166,8 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 						(*bodyPosFP)(config_data->body_char[j], time[8], "ECLIPJ2000", "NONE", "0", body[8][j], &lt);
 					}
 
-					// interp_body_states(configuration_values *config_data, SpiceDouble **body[9], SpiceDouble *dtime, SpiceDouble h, int order, int j)
-					interp_ret = interp_body_states(config_data, &body, dtime, h, 5, j);
+					// Interpolate body states
+					interp_ret = interp_body_states(config_data, &body, &body_c, dtime, h, j);
 					if (interp_ret == 0) // all is well
 					{
 						;
@@ -357,6 +347,9 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		}
 		free(body[k]);
 	}
+
+	// Free body state coefficient memory
+	interp_body_states_free(config_data, &body_c);
 
 #ifdef __WTIMESTEP
 	printf("\n            	 Smallest time step: %.4le s", hmin);

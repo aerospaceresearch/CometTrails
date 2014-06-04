@@ -244,54 +244,129 @@ void return_SSBr(	ConstSpiceChar    * targ,
 
 
 
-/* Interpolate body states, either 2nd order or 5th order (coming soon), 
-   returns 1 if OOM and 2 if interpolation fails. 
+/* Allocate memory for variables in interp_body_states() 
    */
-int interp_body_states(configuration_values *config_data, SpiceDouble * * (*body)[9], SpiceDouble dtime[9], SpiceDouble h, int order, int j)
+int interp_body_states_malloc(configuration_values *config_data, SpiceDouble **(*body_c)[6])
 {
-	int i, k, m;
+	int i, n;
 
-	if (order == 2)
+	int vector_size = 0;
+
+	if (config_data->interp_order == 2)
 	{
-		// allocate memory for coefficients
-		SpiceDouble **bod_a, **bod_b, **bod_c;
-		bod_a = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
-		bod_b = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
-		bod_c = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
-		if (bod_a == NULL || bod_b == NULL || bod_c == NULL)
-		{
-			printf("\n\nerror: could not allocate body coefficient array (OOM)");
-			return 1;
-		}
-		for (i = 0; i < config_data->N_bodys; i++)
-		{
-			bod_a[i] = malloc(3 * sizeof(SpiceDouble));
-			bod_b[i] = malloc(3 * sizeof(SpiceDouble));
-			bod_c[i] = malloc(3 * sizeof(SpiceDouble));
-			if (bod_a[i] == NULL || bod_b[i] == NULL || bod_c[i] == NULL)
+		vector_size = 3;
+	}
+	else if (config_data->interp_order == 5)
+	{
+		vector_size = 6;
+	}
+	else if (config_data->interp_order == 0)
+	{
+		;
+	}
+	else
+	{
+		;
+	}
+
+	if (vector_size != 0)
+	{
+		// Allocate memory for coefficients
+		for (n = 0; n < vector_size; n++){
+			(*body_c)[n] = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
+			if ((*body_c)[n] == NULL)
 			{
 				printf("\n\nerror: could not allocate body coefficient array (OOM)");
 				return 1;
 			}
 		}
-
-		// solving x = a + bt + ct^2 for quadratic interpolation of body positions
-		for (k = 0; k < 3; k++) // loop x,y,z
+		for (i = 0; i < config_data->N_bodys; i++)
 		{
-			bod_a[j][k] = (*body)[0][j][k];
-
-			bod_c[j][k] = ((((*body)[8][j][k] - bod_a[j][k]) / dtime[8]) - (((*body)[1][j][k] - bod_a[j][k]) / dtime[1])) / h;
-
-			bod_b[j][k] = ((*body)[1][j][k] - bod_a[j][k]) / dtime[1] - bod_c[j][k] * dtime[1];
-
-			// interpolate body states
-			for (m = 2; m < 8; m++)
-			{
-				(*body)[m][j][k] = bod_a[j][k] + (bod_b[j][k] + bod_c[j][k] * dtime[m]) * dtime[m];
+			for (n = 0; n < vector_size; n++){
+				(*body_c)[n][i] = malloc(3 * sizeof(SpiceDouble));
+				if ((*body_c)[n][i] == NULL)
+				{
+					printf("\n\nerror: could not allocate body coefficient array (OOM)");
+					return 1;
+				}
 			}
 		}
 	}
-	else if (order == 5)
+
+	return 0;
+}
+
+
+/* Free memory for variables in interp_body_states()
+*/
+int interp_body_states_free(configuration_values *config_data, SpiceDouble **(*body_c)[6])
+{
+	int i, n;
+
+	int vector_size = 0;
+
+	if (config_data->interp_order == 2)
+	{
+		vector_size = 3;
+	}
+	else if (config_data->interp_order == 5)
+	{
+		vector_size = 6;
+	}
+	else if (config_data->interp_order == 0)
+	{
+		;
+	}
+	else
+	{
+		;
+	}
+
+	if (vector_size != 0)
+	{
+		// Free memory of coefficients
+		for (i = 0; i < config_data->N_bodys; i++)
+		{
+			for (n = 0; n < vector_size; n++){
+				free((*body_c)[n][i]);
+			}
+		}
+		for (n = 0; n < vector_size; n++){
+			free((*body_c)[n]);
+		}
+	}
+
+	return 0;
+}
+
+
+
+/* Interpolate body states, either 2nd order or 5th order (coming soon), 
+   returns 1 if OOM and 2 if interpolation fails. 
+   */
+int interp_body_states(configuration_values *config_data, SpiceDouble **(*body)[9], SpiceDouble **(*body_c)[6], SpiceDouble dtime[9], SpiceDouble h, int j)
+{
+	int k, m;
+
+	if (config_data->interp_order == 2)
+	{
+		// Solving x = a + bt + ct^2 for quadratic interpolation of body positions
+		for (k = 0; k < 3; k++) // loop x,y,z
+		{
+			(*body_c)[0][j][k] = (*body)[0][j][k];
+
+			(*body_c)[2][j][k] = ((((*body)[8][j][k] - (*body_c)[0][j][k]) / dtime[8]) - (((*body)[1][j][k] - (*body_c)[0][j][k]) / dtime[1])) / h;
+
+			(*body_c)[1][j][k] = ((*body)[1][j][k] - (*body_c)[0][j][k]) / dtime[1] - (*body_c)[2][j][k] * dtime[1];
+
+			// Interpolate body states
+			for (m = 2; m < 8; m++)
+			{
+				(*body)[m][j][k] = (*body_c)[0][j][k] + ((*body_c)[1][j][k] + (*body_c)[2][j][k] * dtime[m]) * dtime[m];
+			}
+		}
+	}
+	else if (config_data->interp_order == 5)
 	{
 		// Pre-compute power dtimes
 		SpiceDouble dtime1p2 = dtime[1] * dtime[1];
@@ -312,38 +387,10 @@ int interp_body_states(configuration_values *config_data, SpiceDouble * * (*body
 		SpiceDouble sig[11]; // Precomputed variables needed in more than one formula
 		sig[0] = dtime[1] * dtime8p3*(dtime1p2*dtime[8] - dtime1p3)*dtime81p2;
 
-		// allocate memory for coefficients
-		SpiceDouble **bod_a, **bod_b, **bod_c, **bod_d, **bod_e, **bod_f;
-		bod_a = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
-		bod_b = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
-		bod_c = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
-		bod_d = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
-		bod_e = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
-		bod_f = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
-		if (bod_a == NULL || bod_b == NULL || bod_c == NULL || bod_d == NULL || bod_e == NULL || bod_f == NULL)
-		{
-			printf("\n\nerror: could not allocate body coefficient array (OOM)");
-			return 1;
-		}
-		for (i = 0; i < config_data->N_bodys; i++)
-		{
-			bod_a[i] = malloc(3 * sizeof(SpiceDouble));
-			bod_b[i] = malloc(3 * sizeof(SpiceDouble));
-			bod_c[i] = malloc(3 * sizeof(SpiceDouble));
-			bod_d[i] = malloc(3 * sizeof(SpiceDouble));
-			bod_e[i] = malloc(3 * sizeof(SpiceDouble));
-			bod_f[i] = malloc(3 * sizeof(SpiceDouble));
-			if (bod_a[i] == NULL || bod_b[i] == NULL || bod_c[i] == NULL || bod_d[i] == NULL || bod_e[i] == NULL || bod_f[i] == NULL)
-			{
-				printf("\n\nerror: could not allocate body coefficient array (OOM)");
-				return 1;
-			}
-		}
-
-		// solving x = a + bt + ct^2 + dt^3 + et^4 + ft^5 for 5th order interpolation of body positions
+		// Solving x = a + bt + ct^2 + dt^3 + et^4 + ft^5 for 5th order interpolation of body positions
 		for (k = 0; k < 3; k++) // loop x,y,z
 		{
-			// pre-compute a few things that are needed twice
+			// Pre-compute a few things that are needed twice
 			sig[1] = 4 * dtime1p4*dtime8p2 * (*body)[0][j][k + 3];
 			sig[2] = 4 * dtime1p2*dtime8p4 * (*body)[0][j][k + 3];
 			sig[3] = dtime1p4*dtime8p2 * (*body)[8][j][k + 3];
@@ -355,43 +402,43 @@ int interp_body_states(configuration_values *config_data, SpiceDouble * * (*body
 			sig[9] = 5 * dtime1p4*dtime[8] * (*body)[0][j][k];
 			sig[10] = 5 * dtime[1] * dtime8p4 * (*body)[0][j][k];
 
-			bod_a[j][k] = (*body)[0][j][k];
+			(*body_c)[0][j][k] = (*body)[0][j][k];
 
-			bod_b[j][k] = (*body)[0][j][k + 3]; // k+3 gives the speed vector instead of the position vector
+			(*body_c)[1][j][k] = (*body)[0][j][k + 3]; // k+3 gives the speed vector instead of the position vector
 
-			bod_c[j][k] = -(3 * dtime1p5 * (*body)[0][j][k] - 3 * dtime8p5 * (*body)[0][j][k] - 3 * dtime1p5 * (*body)[8][j][k] + 3 * dtime8p5 * (*body)[1][j][k] - sig[6] + sig[5]
+			(*body_c)[2][j][k] = -(3 * dtime1p5 * (*body)[0][j][k] - 3 * dtime8p5 * (*body)[0][j][k] - 3 * dtime1p5 * (*body)[8][j][k] + 3 * dtime8p5 * (*body)[1][j][k] - sig[6] + sig[5]
 				- dtime[1] * dtime8p5 * (*body)[1][j][k + 3] + dtime1p5*dtime[8] * (*body)[8][j][k + 3] + sig[2] - sig[1] + sig[4] - sig[3]
 				+ sig[10] - sig[9] - sig[8] + sig[7]) / (dtime1p2*dtime8p2*dtime81p2*dtime81);
 
-			bod_d[j][k] = -(2 * dtime1p6 * (*body)[0][j][k] - 2 * dtime8p6 * (*body)[0][j][k] - 2 * dtime1p6 * (*body)[8][j][k] + 2 * dtime8p6 * (*body)[1][j][k] - dtime[1] * dtime8p6 * (*body)[0][j][k + 3] + dtime1p6*dtime[8] * (*body)[0][j][k + 3] - dtime[1] * dtime8p6 * (*body)[1][j][k + 3]
+			(*body_c)[3][j][k] = -(2 * dtime1p6 * (*body)[0][j][k] - 2 * dtime8p6 * (*body)[0][j][k] - 2 * dtime1p6 * (*body)[8][j][k] + 2 * dtime8p6 * (*body)[1][j][k] - dtime[1] * dtime8p6 * (*body)[0][j][k + 3] + dtime1p6*dtime[8] * (*body)[0][j][k + 3] - dtime[1] * dtime8p6 * (*body)[1][j][k + 3]
 				+ dtime1p6*dtime[8] * (*body)[8][j][k + 3] + 10 * dtime1p2*dtime8p4 * (*body)[0][j][k] - 10 * dtime1p4*dtime8p2 * (*body)[0][j][k] - 10 * dtime1p2*dtime8p4 * (*body)[1][j][k] + 10 * dtime1p4*dtime8p2 * (*body)[8][j][k] - dtime1p2*dtime8p5 * (*body)[0][j][k + 3]
 				+ 8 * dtime1p3*dtime8p4 * (*body)[0][j][k + 3] - 8 * dtime1p4*dtime8p3 * (*body)[0][j][k + 3] + dtime1p5*dtime8p2 * (*body)[0][j][k + 3] - dtime1p2*dtime8p5 * (*body)[1][j][k + 3] + 2 * dtime1p3*dtime8p4 * (*body)[1][j][k + 3] - 2 * dtime1p4*dtime8p3 * (*body)[8][j][k + 3]
 				+ dtime1p5*dtime8p2 * (*body)[8][j][k + 3] - 2 * dtime[1] * dtime8p5 * (*body)[0][j][k] + 2 * dtime1p5*dtime[8] * (*body)[0][j][k] + 2 * dtime[1] * dtime8p5 * (*body)[1][j][k] - 2 * dtime1p5*dtime[8] * (*body)[8][j][k]) / (sig[0]);
 
-			bod_e[j][k] = (4 * dtime1p5 * (*body)[0][j][k] - 4 * dtime8p5 * (*body)[0][j][k] - 4 * dtime1p5 * (*body)[8][j][k] + 4 * dtime8p5 * (*body)[1][j][k] - sig[6] + sig[5] - 2 * dtime[1] * dtime8p5 * (*body)[1][j][k + 3]
+			(*body_c)[4][j][k] = (4 * dtime1p5 * (*body)[0][j][k] - 4 * dtime8p5 * (*body)[0][j][k] - 4 * dtime1p5 * (*body)[8][j][k] + 4 * dtime8p5 * (*body)[1][j][k] - sig[6] + sig[5] - 2 * dtime[1] * dtime8p5 * (*body)[1][j][k + 3]
 				+ 2 * dtime1p5*dtime[8] * (*body)[8][j][k + 3] + 5 * dtime1p2*dtime8p3 * (*body)[0][j][k] - 5 * dtime1p3*dtime8p2 * (*body)[0][j][k] - 5 * dtime1p2*dtime8p3 * (*body)[1][j][k] + 5 * dtime1p3*dtime8p2 * (*body)[8][j][k] + sig[2]
 				- sig[1] + sig[4] + dtime1p3*dtime8p3 * (*body)[1][j][k + 3] - dtime1p3*dtime8p3 * (*body)[8][j][k + 3] - sig[3] + sig[10] - sig[9]
 				- sig[8] + sig[7]) / (sig[0]);
 
-			bod_f[j][k] = (2 * dtime1p4 * (*body)[0][j][k] - 2 * dtime8p4 * (*body)[0][j][k] - 2 * dtime1p4 * (*body)[8][j][k]
+			(*body_c)[5][j][k] = (2 * dtime1p4 * (*body)[0][j][k] - 2 * dtime8p4 * (*body)[0][j][k] - 2 * dtime1p4 * (*body)[8][j][k]
 				+ 2 * dtime8p4 * (*body)[1][j][k] - dtime[1] * dtime8p4 * (*body)[0][j][k + 3] + dtime1p4*dtime[8] * (*body)[0][j][k + 3] - dtime[1] * dtime8p4 * (*body)[1][j][k + 3] + dtime1p4*dtime[8] * (*body)[8][j][k + 3] + 3 * dtime1p2*dtime8p3 * (*body)[0][j][k + 3]
 				- 3 * dtime1p3*dtime8p2 * (*body)[0][j][k + 3] + dtime1p2*dtime8p3 * (*body)[1][j][k + 3] - dtime1p3*dtime8p2 * (*body)[8][j][k + 3] + 4 * dtime[1] * dtime8p3 * (*body)[0][j][k] - 4 * dtime1p3*dtime[8] * (*body)[0][j][k]
 				- 4 * dtime[1] * dtime8p3 * (*body)[1][j][k] + 4 * dtime1p3*dtime[8] * (*body)[8][j][k]) / (dtime1p3*dtime8p3*dtime81*(dtime1p2 - 2 * dtime[1] * dtime[8] + dtime8p2));
 
-			// interpolate body states
+			// Interpolate body states
 			for (m = 2; m < 8; m++)
 			{
-				(*body)[m][j][k] = bod_a[j][k] + (bod_b[j][k] + (bod_c[j][k] + (bod_d[j][k] + (bod_e[j][k] + bod_f[j][k] * dtime[m]) * dtime[m]) * dtime[m]) * dtime[m]) * dtime[m];
+				(*body)[m][j][k] = (*body_c)[0][j][k] + ((*body_c)[1][j][k] + ((*body_c)[2][j][k] + ((*body_c)[3][j][k] + ((*body_c)[4][j][k] + (*body_c)[5][j][k] * dtime[m]) * dtime[m]) * dtime[m]) * dtime[m]) * dtime[m];
 			}
 		}
 	}
-	else if (order == 0)
+	else if (config_data->interp_order == 0)
 	{
 		return 2;
 	}
 	else
 	{
-		printf("\n\nwarning: interpolation order not supported: %d", order);
+		printf("\n\nwarning: interpolation order not supported: %d", config_data->interp_order);
 		return 2;
 	}
 
