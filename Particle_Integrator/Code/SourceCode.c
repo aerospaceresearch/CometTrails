@@ -95,7 +95,12 @@ int main(void)
 		.particle_radius = 0.,
 		.save_as_binary = 0
 	};
-	
+	// Allocate memory below body char pointers
+	for (j = 0; j < 10; j++)
+	{
+		config_data.body_char[j] = malloc(3 * sizeof(ConstSpiceChar));
+	}
+
 	//Load Spice kernels
 	printf("\nLoading kernels...		");
 	furnsh_c("kernels_generic.txt");
@@ -804,6 +809,7 @@ int read_configuration(configuration_values *config_data)
 		}
 		sscanf(token, "%d", &config_data->body_int[j]);
 		token = strtok_r(NULL, " ", &next_token);
+		sprintf_s((char *)config_data->body_char[j], 3, "%d", config_data->body_int[j]);
 		bodvcd_c(config_data->body_int[j], "GM", config_data->N_bodys, &dim, &config_data->GM[j]); // Get standard gravitational parameter of each body (GM)
 	}
 

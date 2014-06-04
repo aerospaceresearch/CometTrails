@@ -191,18 +191,277 @@ int calc_pInfo(configuration_values *config_data)
 /* Function imitating spkezp_c but always returning the SSB as the body poisition.
    Only used when SSB_CENTERED	=1
    */
-void return_SSB(SpiceInt            targ,
-				SpiceDouble         et,
-				ConstSpiceChar    * ref,
-				ConstSpiceChar    * abcorr,
-				SpiceInt            obs,
-				SpiceDouble         ptarg[3],
-				SpiceDouble       * lt) // Most parameters are unreferenced but necessary for identical function calls to spkezp_c
+void return_SSB(	SpiceInt            targ,
+					SpiceDouble         et,
+					ConstSpiceChar    * ref,
+					ConstSpiceChar    * abcorr,
+					SpiceInt            obs,
+					SpiceDouble         ptarg[3],
+					SpiceDouble       * lt) // Most parameters are unreferenced but necessary for identical function calls to spkezp_c
 {
 	// not using: targ, et, ref, abcorr, obs, lt
+	(void)targ;
+	(void)et;
+	(void)ref;
+	(void)abcorr;
+	(void)obs;
+	(void)lt;
+
 	int j;
 	for (j = 0; j < 3; j++)
 	{
 		ptarg[j] = (SpiceDouble)0.0;
+	}
+}
+
+
+
+/* Function imitating spkezr_c but always returning the SSB as the body poisition and zero as the body speed.
+   Only used when SSB_CENTERED	=1
+   */
+void return_SSBr(	ConstSpiceChar    * targ,
+					SpiceDouble         et,
+					ConstSpiceChar    * ref,
+					ConstSpiceChar    * abcorr,
+					ConstSpiceChar    * obs,
+					SpiceDouble         ptarg[6],
+					SpiceDouble       * lt) // Most parameters are unreferenced but necessary for identical function calls to spkezp_c
+{
+	// not using: targ, et, ref, abcorr, obs, lt
+	(void)targ;
+	(void)et;
+	(void)ref;
+	(void)abcorr;
+	(void)obs;
+	(void)lt;
+
+	int j;
+	for (j = 0; j < 6; j++)
+	{
+		ptarg[j] = (SpiceDouble)0.0;
+	}
+}
+
+
+
+/* Allocate memory for variables in interp_body_states() 
+   */
+int interp_body_states_malloc(configuration_values *config_data, SpiceDouble **(*body_c)[6])
+{
+	int i, n;
+
+	int vector_size = 0;
+
+	if (config_data->interp_order == 2)
+	{
+		vector_size = 3;
+	}
+	else if (config_data->interp_order == 5)
+	{
+		vector_size = 6;
+	}
+	else if (config_data->interp_order == 0)
+	{
+		;
+	}
+	else
+	{
+		;
+	}
+
+	if (vector_size != 0)
+	{
+		// Allocate memory for coefficients
+		for (n = 0; n < vector_size; n++){
+			(*body_c)[n] = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
+			if ((*body_c)[n] == NULL)
+			{
+				printf("\n\nerror: could not allocate body coefficient array (OOM)");
+				return 1;
+			}
+		}
+		for (i = 0; i < config_data->N_bodys; i++)
+		{
+			for (n = 0; n < vector_size; n++){
+				(*body_c)[n][i] = malloc(3 * sizeof(SpiceDouble));
+				if ((*body_c)[n][i] == NULL)
+				{
+					printf("\n\nerror: could not allocate body coefficient array (OOM)");
+					return 1;
+				}
+			}
+		}
+	}
+
+	return 0;
+}
+
+
+
+/* Free memory for variables in interp_body_states()
+*/
+int interp_body_states_free(configuration_values *config_data, SpiceDouble **(*body_c)[6])
+{
+	int i, n;
+
+	int vector_size = 0;
+
+	if (config_data->interp_order == 2)
+	{
+		vector_size = 3;
+	}
+	else if (config_data->interp_order == 5)
+	{
+		vector_size = 6;
+	}
+	else if (config_data->interp_order == 0)
+	{
+		;
+	}
+	else
+	{
+		;
+	}
+
+	if (vector_size != 0)
+	{
+		// Free memory of coefficients
+		for (i = 0; i < config_data->N_bodys; i++)
+		{
+			for (n = 0; n < vector_size; n++){
+				free((*body_c)[n][i]);
+			}
+		}
+		for (n = 0; n < vector_size; n++){
+			free((*body_c)[n]);
+		}
+	}
+
+	return 0;
+}
+
+
+
+/* Interpolate body states, either 2nd order or 5th order (coming soon), 
+   returns 1 if OOM and 2 if interpolation fails. 
+   */
+int interp_body_states(configuration_values *config_data, SpiceDouble **(*body)[9], SpiceDouble **(*body_c)[6], SpiceDouble dtime[9], dtimepowers *dtp, SpiceDouble h, int j)
+{
+	int k, m;
+
+	if (config_data->interp_order == 2)
+	{
+		// Solving x = a + bt + ct^2 for quadratic interpolation of body positions
+		for (k = 0; k < 3; k++) // loop x,y,z
+		{
+			(*body_c)[0][j][k] = (*body)[0][j][k];
+
+			(*body_c)[2][j][k] = ((((*body)[8][j][k] - (*body_c)[0][j][k]) / dtime[8]) - (((*body)[1][j][k] - (*body_c)[0][j][k]) / dtime[1])) / h;
+
+			(*body_c)[1][j][k] = ((*body)[1][j][k] - (*body_c)[0][j][k]) / dtime[1] - (*body_c)[2][j][k] * dtime[1];
+
+			// Interpolate body states
+			for (m = 2; m < 8; m++)
+			{
+				(*body)[m][j][k] = (*body_c)[0][j][k] + ((*body_c)[1][j][k] + (*body_c)[2][j][k] * dtime[m]) * dtime[m];
+			}
+		}
+	}
+	else if (config_data->interp_order == 5)
+	{
+		SpiceDouble sig[11]; // Precomputed variables needed in more than one formula
+		sig[0] = dtime[1] * dtp->dtime8p3*(dtp->dtime1p2*dtime[8] - dtp->dtime1p3)*dtp->dtime81p2;
+
+		// Solving x = a + bt + ct^2 + dt^3 + et^4 + ft^5 for 5th order interpolation of body positions
+		for (k = 0; k < 3; k++) // loop x,y,z
+		{
+			// Pre-compute a few things that are needed twice
+			sig[1] = 4 * dtp->dtime1p4*dtp->dtime8p2 * (*body)[0][j][k + 3];
+			sig[2] = 4 * dtp->dtime1p2*dtp->dtime8p4 * (*body)[0][j][k + 3];
+			sig[3] = dtp->dtime1p4*dtp->dtime8p2 * (*body)[8][j][k + 3];
+			sig[4] = dtp->dtime1p2*dtp->dtime8p4 * (*body)[1][j][k + 3];
+			sig[5] = 2 * dtp->dtime1p5*dtime[8] * (*body)[0][j][k + 3];
+			sig[6] = 2 * dtime[1] * dtp->dtime8p5 * (*body)[0][j][k + 3];
+			sig[7] = 5 * dtp->dtime1p4*dtime[8] * (*body)[8][j][k];
+			sig[8] = 5 * dtime[1] * dtp->dtime8p4 * (*body)[1][j][k];
+			sig[9] = 5 * dtp->dtime1p4*dtime[8] * (*body)[0][j][k];
+			sig[10] = 5 * dtime[1] * dtp->dtime8p4 * (*body)[0][j][k];
+
+			(*body_c)[0][j][k] = (*body)[0][j][k];
+
+			(*body_c)[1][j][k] = (*body)[0][j][k + 3]; // k+3 gives the speed vector instead of the position vector
+
+			(*body_c)[2][j][k] = -(3 * dtp->dtime1p5 * (*body)[0][j][k] - 3 * dtp->dtime8p5 * (*body)[0][j][k] - 3 * dtp->dtime1p5 * (*body)[8][j][k] + 3 * dtp->dtime8p5 * (*body)[1][j][k] - sig[6] + sig[5]
+				- dtime[1] * dtp->dtime8p5 * (*body)[1][j][k + 3] + dtp->dtime1p5*dtime[8] * (*body)[8][j][k + 3] + sig[2] - sig[1] + sig[4] - sig[3]
+				+ sig[10] - sig[9] - sig[8] + sig[7]) / (dtp->dtime1p2*dtp->dtime8p2*dtp->dtime81p2*dtp->dtime81);
+
+			(*body_c)[3][j][k] = -(2 * dtp->dtime1p6 * (*body)[0][j][k] - 2 * dtp->dtime8p6 * (*body)[0][j][k] - 2 * dtp->dtime1p6 * (*body)[8][j][k] + 2 * dtp->dtime8p6 * (*body)[1][j][k]
+				- dtime[1] * dtp->dtime8p6 * (*body)[0][j][k + 3] + dtp->dtime1p6*dtime[8] * (*body)[0][j][k + 3] - dtime[1] * dtp->dtime8p6 * (*body)[1][j][k + 3]	+ dtp->dtime1p6*dtime[8] * (*body)[8][j][k + 3]
+				+ 10 * dtp->dtime1p2*dtp->dtime8p4 * (*body)[0][j][k] - 10 * dtp->dtime1p4*dtp->dtime8p2 * (*body)[0][j][k] - 10 * dtp->dtime1p2*dtp->dtime8p4 * (*body)[1][j][k]
+				+ 10 * dtp->dtime1p4*dtp->dtime8p2 * (*body)[8][j][k] - dtp->dtime1p2*dtp->dtime8p5 * (*body)[0][j][k + 3] + 8 * dtp->dtime1p3*dtp->dtime8p4 * (*body)[0][j][k + 3]
+				- 8 * dtp->dtime1p4*dtp->dtime8p3 * (*body)[0][j][k + 3] + dtp->dtime1p5*dtp->dtime8p2 * (*body)[0][j][k + 3] - dtp->dtime1p2*dtp->dtime8p5 * (*body)[1][j][k + 3]
+				+ 2 * dtp->dtime1p3*dtp->dtime8p4 * (*body)[1][j][k + 3] - 2 * dtp->dtime1p4*dtp->dtime8p3 * (*body)[8][j][k + 3] + dtp->dtime1p5*dtp->dtime8p2 * (*body)[8][j][k + 3]
+				- 2 * dtime[1] * dtp->dtime8p5 * (*body)[0][j][k] + 2 * dtp->dtime1p5*dtime[8] * (*body)[0][j][k] + 2 * dtime[1] * dtp->dtime8p5 * (*body)[1][j][k]
+				- 2 * dtp->dtime1p5*dtime[8] * (*body)[8][j][k]) / (sig[0]);
+
+			(*body_c)[4][j][k] = (4 * dtp->dtime1p5 * (*body)[0][j][k] - 4 * dtp->dtime8p5 * (*body)[0][j][k] - 4 * dtp->dtime1p5 * (*body)[8][j][k] + 4 * dtp->dtime8p5 * (*body)[1][j][k]
+				- sig[6] + sig[5] - 2 * dtime[1] * dtp->dtime8p5 * (*body)[1][j][k + 3] + 2 * dtp->dtime1p5*dtime[8] * (*body)[8][j][k + 3] + 5 * dtp->dtime1p2*dtp->dtime8p3 * (*body)[0][j][k]
+				- 5 * dtp->dtime1p3*dtp->dtime8p2 * (*body)[0][j][k] - 5 * dtp->dtime1p2*dtp->dtime8p3 * (*body)[1][j][k] + 5 * dtp->dtime1p3*dtp->dtime8p2 * (*body)[8][j][k] + sig[2]
+				- sig[1] + sig[4] + dtp->dtime1p3*dtp->dtime8p3 * (*body)[1][j][k + 3] - dtp->dtime1p3*dtp->dtime8p3 * (*body)[8][j][k + 3] - sig[3] + sig[10] - sig[9]
+				- sig[8] + sig[7]) / (sig[0]);
+
+			(*body_c)[5][j][k] = (2 * dtp->dtime1p4 * (*body)[0][j][k] - 2 * dtp->dtime8p4 * (*body)[0][j][k] - 2 * dtp->dtime1p4 * (*body)[8][j][k] + 2 * dtp->dtime8p4 * (*body)[1][j][k]
+				- dtime[1] * dtp->dtime8p4 * (*body)[0][j][k + 3] + dtp->dtime1p4*dtime[8] * (*body)[0][j][k + 3] - dtime[1] * dtp->dtime8p4 * (*body)[1][j][k + 3]
+				+ dtp->dtime1p4*dtime[8] * (*body)[8][j][k + 3] + 3 * dtp->dtime1p2*dtp->dtime8p3 * (*body)[0][j][k + 3] - 3 * dtp->dtime1p3*dtp->dtime8p2 * (*body)[0][j][k + 3]
+				+ dtp->dtime1p2*dtp->dtime8p3 * (*body)[1][j][k + 3] - dtp->dtime1p3*dtp->dtime8p2 * (*body)[8][j][k + 3] + 4 * dtime[1] * dtp->dtime8p3 * (*body)[0][j][k] - 4 * dtp->dtime1p3*dtime[8] * (*body)[0][j][k]
+				- 4 * dtime[1] * dtp->dtime8p3 * (*body)[1][j][k] + 4 * dtp->dtime1p3*dtime[8] * (*body)[8][j][k]) / (dtp->dtime1p3*dtp->dtime8p3*dtp->dtime81*(dtp->dtime1p2 - 2 * dtime[1] * dtime[8] + dtp->dtime8p2));
+
+			// Interpolate body states
+			for (m = 2; m < 8; m++)
+			{
+				(*body)[m][j][k] = (*body_c)[0][j][k] + ((*body_c)[1][j][k] + ((*body_c)[2][j][k] + ((*body_c)[3][j][k] + ((*body_c)[4][j][k] + (*body_c)[5][j][k] * dtime[m]) * dtime[m]) * dtime[m]) * dtime[m]) * dtime[m];
+			}
+		}
+	}
+	else if (config_data->interp_order == 0)
+	{
+		return 2;
+	}
+	else
+	{
+		printf("\n\nwarning: interpolation order not supported: %d", config_data->interp_order);
+		return 2;
+	}
+
+	return 0;
+}
+
+
+
+/* Precompute powers of time differences used in interp_body_states for order = 5
+   */
+void precompute_dtime_powers(configuration_values *config_data, dtimepowers *dtp, SpiceDouble dtime[9])
+{
+	if (config_data->interp_order == 5)
+	{
+		// Pre-compute power dtimes
+
+		// dtime[1]
+		dtp->dtime1p2 = dtime[1] * dtime[1]; // ^2
+		dtp->dtime1p3 = dtp->dtime1p2 * dtime[1]; // ^3
+		dtp->dtime1p4 = dtp->dtime1p3 * dtime[1]; // ^4
+		dtp->dtime1p5 = dtp->dtime1p4 * dtime[1]; // ^5
+		dtp->dtime1p6 = dtp->dtime1p5 * dtime[1]; // ^6
+
+		// dtime[8]
+		dtp->dtime8p2 = dtime[8] * dtime[8]; // ^2
+		dtp->dtime8p3 = dtp->dtime8p2 * dtime[8]; // ^3
+		dtp->dtime8p4 = dtp->dtime8p3 * dtime[8]; // ^4
+		dtp->dtime8p5 = dtp->dtime8p4 * dtime[8]; // ^5
+		dtp->dtime8p6 = dtp->dtime8p5 * dtime[8]; // ^6
+
+		// dtime[1] - dtime[8]
+		dtp->dtime81 = (dtime[1] - dtime[8]);
+		dtp->dtime81p2 = dtp->dtime81 * dtp->dtime81; // ^2
 	}
 }
