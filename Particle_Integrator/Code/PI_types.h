@@ -13,6 +13,7 @@ typedef struct
 	SpiceDouble start_time_save;	// [s]
 	int N_bodys;
 	int body_int[10];
+	ConstSpiceChar *body_char[10];
 	SpiceDouble GM[12];				// [km^3/s^2]
 	int n;
 	int n_opt;
@@ -27,6 +28,7 @@ typedef struct
 	// Algorithm-specific
 	SpiceDouble dv_step;			// [km/s^2]
 	SpiceDouble e_target;			// [km]
+	int interp_order;
 } configuration_values;
 
 /* struct type for the config file readout */
@@ -53,3 +55,22 @@ typedef struct
 	const char* dvstep;
 	const char* etarget;
 } configuration_readout;
+
+/* struct type for precomputed dtime powers for interpolation */
+typedef struct
+{
+	SpiceDouble dtime1p2;
+	SpiceDouble dtime1p3;
+	SpiceDouble dtime1p4;
+	SpiceDouble dtime1p5;
+	SpiceDouble dtime1p6;
+
+	SpiceDouble dtime8p2;
+	SpiceDouble dtime8p3;
+	SpiceDouble dtime8p4;
+	SpiceDouble dtime8p5;
+	SpiceDouble dtime8p6;
+
+	SpiceDouble dtime81;
+	SpiceDouble dtime81p2;
+} dtimepowers;
