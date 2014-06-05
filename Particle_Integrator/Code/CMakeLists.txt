@@ -44,7 +44,9 @@ option (SaveRateOpt
 if (MSVC)
 	option (LinkStatic
 		"Activate if cspice was compiled with /MT (pre-compiled versions are not)." OFF)
-endif ()
+	option (CHKMEMLEAK
+		"Check for leaked memory before closing." OFF)
+endif (MSVC)
 
 
 # 32 or 64?
@@ -94,6 +96,10 @@ if (SaveRateOpt)
 	add_definitions(-D__SaveRateOpt)
 	message("SaveRateOpt ACTIVE")
 endif (SaveRateOpt)
+if (CHKMEMLEAK)
+	add_definitions(-D__CHKMEMLEAK)
+	message("CHKMEMLEAK ACTIVE")
+endif (CHKMEMLEAK)
 
 
 # LIBRARIES

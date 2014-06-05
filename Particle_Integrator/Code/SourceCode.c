@@ -6,7 +6,6 @@
 #endif
 #include <stdbool.h>
 #include <string.h>
-#include <stdlib.h>
 #include <omp.h>
 #include <math.h>
 #include <SpiceUsr.h>
@@ -24,6 +23,15 @@
 #ifdef __WTIMING
 	#include <time.h>
 #endif
+
+// Check for leaked memory at the end of the run (MSVC only): Add preprocessor definition "__CHKMEMLEAK"
+#ifdef __CHKMEMLEAK
+	#define _CRTDBG_MAP_ALLOC
+	#include <stdlib.h>
+	#include <crtdbg.h>
+#else // Always include
+	#include <stdlib.h>
+#endif // __CHKMEMLEAK
 
 
 
@@ -512,6 +520,10 @@ int main(void)
 		printf("\n\nWarning: %d	particles may have been skipped!\n", error_code);
 		return 2;
 	}
+
+#ifdef __CHKMEMLEAK
+	_CrtDumpMemoryLeaks();
+#endif
 }
 
 
@@ -1132,21 +1144,31 @@ void printinfo()
 	// Print active options in debug builds
 #if defined(RELTYPERWDI) || defined(RELTYPEDEB)
 	printf(", "__DATE__ " " __TIME__ "\n Options: ");
-#ifdef __WTIMING
-	printf("TIMING ");
-#endif // __WTIMING
-#ifdef __WTIMESTEP
-	printf("WTIMESTEP ");
-#endif // __WSTEPINFO
-#ifdef __PRD
-	printf("PRD ");
-#endif // __PRD
-#ifdef __SWD
-	printf("SWD ");
-#endif // __SWD
-#ifdef __SaveRateOpt
-	printf("SaveRateOpt ");
-#endif // __SaveRateOpt
-#endif // RELTYPERWDI || RELTYPEDEB
+
+	#ifdef __WTIMING
+		printf("TIMING ");
+	#endif // __WTIMING
+
+	#ifdef __WTIMESTEP
+		printf("WTIMESTEP ");
+	#endif // __WSTEPINFO
+
+	#ifdef __PRD
+		printf("PRD ");
+	#endif // __PRD
+
+	#ifdef __SWD
+		printf("SWD ");
+	#endif // __SWD
+
+	#ifdef __SaveRateOpt
+		printf("SaveRateOpt ");
+	#endif // __SaveRateOpt
+
+	#ifdef __CHKMEMLEAK
+		printf("CHKMEMLEAK ");
+	#endif // __CHKMEMLEAK
+
 	printf("\n");
+#endif // RELTYPERWDI || RELTYPEDEB
 }
