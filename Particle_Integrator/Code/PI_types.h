@@ -4,11 +4,12 @@
 typedef struct
 {
 	int algorithm;
-	int ssb_centered;
+	bool ssb_centered;
 	char inputfpath[260];
 	char outputpath[260];
 	int number_of_threads;
-	int save_as_binary;
+	bool save_as_binary;
+	bool endontime;
 	SpiceDouble final_time;			// [s]
 	SpiceDouble start_time_save;	// [s]
 	int N_bodys;
@@ -35,25 +36,27 @@ typedef struct
 typedef struct
 {
 	// Simulation
-	const char* algo;
+	char *algo;
 	int ssbc;
-	const char* finaltime;
-	const char* starttimes;
+	char *finaltime;
+	char *starttimes;
 	int nbodys;
-	const char* bodysid;
-	const char* mult;
+	char *bodysid;
+	char *mult;
 	int nthreads;
 	int savebin;
+	int endontime;
 	// Particles
-	const char* inputfn;
-	const char* outputfn;
-	const char* pmass;
-	const char* q_pr;
-	int pdensity;
+	char *inputfn;
+	char *outputfn;
+	char *pmass;
+	char *q_pr;
+	char *pdensity;
 	int fpnum;
 	// Algorithm-specific
-	const char* dvstep;
-	const char* etarget;
+	char *dvstep;
+	char *etarget;
+	int iorder;
 } configuration_readout;
 
 /* struct type for precomputed dtime powers for interpolation */

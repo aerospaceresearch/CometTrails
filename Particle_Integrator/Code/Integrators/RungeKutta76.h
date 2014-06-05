@@ -5,8 +5,6 @@
 
 int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *statefile)
 {
-	config_data->interp_order = 5; // #todo# should be set via config
-
 	// Select body position function to use ((*bodyPosFP) for spice, return_SSB for (0,0,0))
 	void(*bodyPosFP)(ConstSpiceChar *, SpiceDouble, ConstSpiceChar *, ConstSpiceChar *, ConstSpiceChar *, SpiceDouble[3], SpiceDouble *);
 	if (config_data->ssb_centered == 1)
@@ -123,12 +121,14 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 				h = h * 1.4;
 			}
 
-#ifdef __ENDONTIME
-			if (time[1] + h > config_data->final_time)
+			// End integration on time
+			if (config_data->endontime)
 			{
-				h = config_data->final_time - time[1];
+				if (time[1] + h > config_data->final_time)
+				{
+					h = config_data->final_time - time[1];
+				}
 			}
-#endif // __ENDONTIME
 
 			// Calculate times
 			dtime[2] = dtime[1] + h / 10.;

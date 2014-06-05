@@ -112,13 +112,15 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 		numsteps++;
 #endif // __WTIMESTEP
 
-#ifdef __ENDONTIME
-		if (initTime + dt > config_data->final_time)
+		// End integration on time
+		if (config_data->endontime)
 		{
-			dt = config_data->final_time - initTime;
-			dt2 = dt / 2;
+			if (initTime + dt > config_data->final_time)
+			{
+				dt = config_data->final_time - initTime;
+				dt2 = dt / 2;
+			}
 		}
-#endif // __ENDONTIME
 
 		//Get body positions with SPICE
 		for (j = 0; j < config_data->N_bodys; j++)

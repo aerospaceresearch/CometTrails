@@ -186,19 +186,28 @@ int main(void)
 	if (config_data.algorithm == 1)
 		printf("\n algorithm		= RK4");
 	else if (config_data.algorithm == 2)
+	{
 		printf("\n algorithm		= RK76");
+		printf("\n interpolation order	= %d", config_data.interp_order);
+	}
 	else
 		printf("\n algorithm unknown.");
 	if (config_data.number_of_threads > 1)
 		printf("\n number of threads	= %d", config_data.number_of_threads);
-	printf("\n final_time		= %le", config_data.final_time);
+	printf("\n final_time		= %.16le", config_data.final_time);
 	if (config_data.start_time_save > (double)-3.155e+10)
-		printf("\n start_time_save	= %le", config_data.start_time_save);
+		printf("\n start_time_save	= %.6le", config_data.start_time_save);
 	if (config_data.save_as_binary){
 		printf("\n saving output as	  binary (.ctwu)");
 	}
 	else {
 		printf("\n saving output as	  text (.txt)");
+	}
+	if (config_data.endontime){
+		printf("\n end on time		  yes");
+	}
+	else {
+		printf("\n end on time		  no");
 	}
 	printf("\n bodys_ID		=");
 	for (j = 0; j < config_data.N_bodys; j++)
@@ -637,30 +646,43 @@ static int handler(void* user, const char* section, const char* name, const char
 #define MATCH(s, n) strcmp(section, s) == 0 && strcmp(name, n) == 0
 
 	if (MATCH("simulation", "ALGORITHM")) {
+		free(pconfig->algo);
 		pconfig->algo = strdup(value);
 	}
-	if (MATCH("simulation", "SSB_CENTERED")) {
+	else if (MATCH("simulation", "SSB_CENTERED")) {
 		pconfig->ssbc = atoi(value);
 	}
-	if (MATCH("simulation", "FINAL_TIME")) {
+	else if (MATCH("simulation", "FINAL_TIME")) {
+		free(pconfig->finaltime);
 		pconfig->finaltime = strdup(value);
 	}
 	else if (MATCH("simulation", "START_TIME_SAVE")) {
+		free(pconfig->starttimes);
 		pconfig->starttimes = strdup(value);
 	}
 	else if (MATCH("simulation", "N_BODYS")) {
 		pconfig->nbodys = atoi(value);
 	}
 	else if (MATCH("simulation", "BODYS_ID")) {
+		free(pconfig->bodysid);
 		pconfig->bodysid = strdup(value);
 	}
+	else if (MATCH("simulation", "ENDONTIME")) {
+		pconfig->endontime = atoi(value);
+	}
 	else if (MATCH("rk4", "DV_STEP")) {
+		free(pconfig->dvstep);
 		pconfig->dvstep = strdup(value);
 	}
 	else if (MATCH("rk76", "E_TARGET")) {
+		free(pconfig->etarget);
 		pconfig->etarget = strdup(value);
 	}
+	else if (MATCH("rk76", "IORDER")) {
+		pconfig->iorder = atoi(value);
+	}
 	else if (MATCH("simulation", "SAVE_NTH_MULTIPLIER")) {
+		free(pconfig->mult);
 		pconfig->mult = strdup(value);
 	}
 	else if (MATCH("simulation", "NUMBER_OF_THREADS")) {
@@ -670,18 +692,23 @@ static int handler(void* user, const char* section, const char* name, const char
 		pconfig->savebin = atoi(value);
 	}
 	else if (MATCH("particles", "PARTICLE_INPUT_FILE_NAME")) {
+		free(pconfig->inputfn);
 		pconfig->inputfn = strdup(value);
 	}
 	else if (MATCH("particles", "PARTICLE_OUTPUT_FILE_NAME")) {
+		free(pconfig->outputfn);
 		pconfig->outputfn = strdup(value);
 	}
 	else if (MATCH("particles", "PARTICLE_MASS")) {
+		free(pconfig->pmass);
 		pconfig->pmass = strdup(value);
 	}
 	else if (MATCH("particles", "PARTICLE_DENSITY")) {
-		pconfig->pdensity = atoi(value);
+		free(pconfig->pdensity);
+		pconfig->pdensity = strdup(value);
 	}
 	else if (MATCH("particles", "Q_PR")) {
+		free(pconfig->q_pr);
 		pconfig->q_pr = strdup(value);
 	}
 	else if (MATCH("particles", "FIRST_PARTICLE_NUMBER")) {
@@ -698,35 +725,70 @@ int read_configuration(configuration_values *config_data)
 	char temp[260] = "", *token, *next_token = NULL, inputpath[260] = ("INPUT" OS_SEP), configpath[260] = "";
 	SpiceInt dim, j;
 	SpiceDouble mult = 0.0;
-
+	
 	sprintf_s(configpath, 260, "%s%s", inputpath, "configuration.ini");
 
 	// Set default values: initialize config struct
 	configuration_readout config =
 	{
-		/* Simulation */
-		.algo = "RK4",
+		/* [simulation] */
+		.algo = (char *)malloc(11),
 		.ssbc = 0,
-		.finaltime = "",
-		.starttimes = "1 JAN 1000",
+		.finaltime = (char *)malloc(101),
+		.starttimes = (char *)malloc(101),
 		.nbodys = 0,
-		.bodysid = "10",
-		.mult = "20.",
+		.bodysid = (char *)malloc(41),
+		.mult = (char *)malloc(31),
 		.nthreads = 1,
-		.savebin = 0,
+		.savebin = 1,
+		.endontime = 0,
 
-		/* Particles */
-		.inputfn = "",
-		.outputfn = "default",
-		.pmass = "0.",
-		.q_pr = "1.",
-		.pdensity = 1000,
+		/* [particles] */
+		.inputfn = (char *)malloc(261),
+		.outputfn = (char *)malloc(261),
+		.pmass = (char *)malloc(31),
+		.q_pr = (char *)malloc(31),
+		.pdensity = (char *)malloc(31),
 		.fpnum = 1,
 
 		/* Algorithm-specific */
-		.dvstep = "10e-3",
-		.etarget = "10e-18"
+		/* [rk4] */
+		.dvstep = (char *)malloc(31),
+		/* [rk76] */
+		.etarget = (char *)malloc(31),
+		.iorder = 5
 	};
+
+	if (config.algo == NULL 
+		|| config.finaltime == NULL 
+		|| config.starttimes == NULL 
+		|| config.bodysid == NULL
+		|| config.mult == NULL
+		|| config.inputfn == NULL
+		|| config.outputfn == NULL
+		|| config.pmass == NULL
+		|| config.q_pr == NULL
+		|| config.pdensity == NULL
+		|| config.dvstep == NULL
+		|| config.etarget == NULL) // At least one alloc ran OOM
+	{
+		printf("\n\nerror: could not allocate memory for config char*s (OOM)");
+		return 1;
+	}
+	
+	// set default values for char*s
+	strcpy(config.algo, 10, "RK4");
+	strcpy(config.finaltime, 100, "");
+	strcpy(config.starttimes, 100, "1 JAN 1000");
+	strcpy(config.bodysid, 40, "10");
+	strcpy(config.mult, 30, "20.");
+	strcpy(config.inputfn, 260, "");
+	strcpy(config.outputfn, 260, "default");
+	strcpy(config.pmass, 30, "0.");
+	strcpy(config.q_pr, 30, "1.");
+	strcpy(config.pdensity, 30, "1000.");
+	strcpy(config.dvstep, 30, "10e-3");
+	strcpy(config.etarget, 30, "10e-18");
 
 	// Parse configuration file
 	if (ini_parse(configpath, handler, &config) < 0) {
@@ -755,13 +817,16 @@ int read_configuration(configuration_values *config_data)
 	}
 
 	//Center bodies at SSB?
-	config_data->ssb_centered = config.ssbc;
+	config_data->ssb_centered = (bool)config.ssbc;
 
 	//Set number of threads
 	config_data->number_of_threads = config.nthreads;
 
 	//Save output as binary?
-	config_data->save_as_binary = config.savebin;
+	config_data->save_as_binary = (bool)config.savebin;
+
+	//End on time?
+	config_data->endontime = (bool)config.endontime;
 
 	//Set final date of the simulation
 	if (strcmp(config.finaltime, "") == 0)
@@ -831,6 +896,9 @@ int read_configuration(configuration_values *config_data)
 		{
 			// Close to constant number of total steps saved across e_target values. 1.4e3 is a factor imitating the number of steps that would be saved with RK4.
 			config_data->n = (int)(mult / 1.4e3 * pow(10,(3.6072 - 0.0746 * log10( config_data->e_target ))) + 0.5);
+
+			// Interpolation order?
+			config_data->interp_order = config.iorder;
 		}
 		else // Unknown algorithm
 		{
@@ -872,17 +940,32 @@ int read_configuration(configuration_values *config_data)
 	sscanf(config.q_pr, "%lf", &config_data->q_pr);
 
 	//Set mass of particles
-	//strcpy(temp, sizeof(temp), config.pmass);
 	sscanf(config.pmass, "%lf", &config_data->particle_mass);
 
 	if (config_data->particle_mass > 0.)
 	{
 		//Set density of particles
-		config_data->particle_density = (SpiceDouble)config.pdensity;
+		sscanf(config.pdensity, "%lf", &config_data->particle_density);
 	}
+
+	// Free memory allocated for config char*s
+	free(config.algo);
+	free(config.finaltime);
+	free(config.starttimes);
+	free(config.bodysid);
+	free(config.mult);
+	free(config.inputfn);
+	free(config.outputfn);
+	free(config.pmass);
+	free(config.q_pr);
+	free(config.pdensity);
+	free(config.dvstep);
+	free(config.etarget);
 
 	return 0;
 }
+
+
 
 int convert_results_into_binary(configuration_values config_data, int particles_count, double *multiplication_factor, char already_done_path[])
 {
@@ -1055,9 +1138,6 @@ void printinfo()
 #ifdef __WTIMESTEP
 	printf("WTIMESTEP ");
 #endif // __WSTEPINFO
-#ifdef __ENDONTIME
-	printf("ENDONTIME ");
-#endif // __ENDONTIME
 #ifdef __PRD
 	printf("PRD ");
 #endif // __PRD
