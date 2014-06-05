@@ -908,8 +908,8 @@ int convert_results_into_binary(configuration_values config_data, int particles_
 		return 2;
 	}
 	//Set file header
-	result_array[0][0] = config_data.first_particle_number;
-	result_array[0][1] = (config_data.first_particle_number + particles_count - 1);
+	result_array[0][0] = (float)config_data.first_particle_number;
+	result_array[0][1] = (float)(config_data.first_particle_number + particles_count - 1);
 	result_array[0][2] = (float)config_data.particle_mass;
 	result_array[0][3] = (float)config_data.particle_density;
 	result_array[0][4] = 0;
@@ -967,7 +967,7 @@ int convert_results_into_binary(configuration_values config_data, int particles_
 		{
 			result_array[particle_header_row][i] = 0;
 		}
-		result_array[particle_header_row][4] = (j + config_data.first_particle_number);
+		result_array[particle_header_row][4] = (float)(j + config_data.first_particle_number);
 		result_array[particle_header_row][5] = (float)(multiplication_factor[j]);
 		result_array[particle_header_row][6] = 0;
 		rewind(output_file);
