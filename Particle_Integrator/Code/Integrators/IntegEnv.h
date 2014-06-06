@@ -15,6 +15,54 @@
 	#endif // SWD
 #endif // PRD
 
+
+
+/* Selector function for getting body positions, either from spkezp_c, spkezr_c or a simple routine giving back fixed positions. */
+void get_body_state(configuration_values *config_data, int body_index, SpiceDouble *time, SpiceDouble **body_state_vector[])
+{
+	if (config_data->ssb_centered == 1)
+	{
+		int j;
+		if (config_data->interp_order != 5) // no speed vector needed
+		{
+			for (j = 0; j < 3; j++)
+			{
+				(*body_state_vector)[body_index][j] = (SpiceDouble)0.0;
+			}
+		}
+		else // speed vector needed
+		{
+			for (j = 0; j < 6; j++)
+			{
+				(*body_state_vector)[body_index][j] = (SpiceDouble)0.0;
+			}
+		}
+	}
+	else if (config_data->algorithm == 1) // RK4
+	{
+		SpiceDouble lt;
+		spkezp_c(config_data->body_int[body_index], *time, "ECLIPJ2000", "NONE", 0, (*body_state_vector)[body_index], &lt);
+	}
+	else if (config_data->algorithm == 2) // RK76
+	{
+		SpiceDouble lt;
+		if (config_data->interp_order != 5) // no speed vector needed
+		{
+			spkezp_c(config_data->body_int[body_index], *time, "ECLIPJ2000", "NONE", 0, (*body_state_vector)[body_index], &lt);
+		}
+		else // speed vector needed
+		{
+			spkezr_c(config_data->body_char[body_index], *time, "ECLIPJ2000", "NONE", "0", (*body_state_vector)[body_index], &lt);
+		}
+	} 
+	else
+	{
+		printf("\n\nwarning: no matching body position source found.");
+	}
+}
+
+
+
 /* Calculate the acceleration of a particle based on the position of the body relative to the SSB */
 void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel, SpiceDouble *Vel, SpiceDouble dt)
 {
@@ -184,62 +232,6 @@ int calc_pInfo(configuration_values *config_data)
 	}
 
 	return 0;
-}
-
-
-
-/* Function imitating spkezp_c but always returning the SSB as the body poisition.
-   Only used when SSB_CENTERED	=1
-   */
-void return_SSB(	SpiceInt            targ,
-					SpiceDouble         et,
-					ConstSpiceChar    * ref,
-					ConstSpiceChar    * abcorr,
-					SpiceInt            obs,
-					SpiceDouble         ptarg[3],
-					SpiceDouble       * lt) // Most parameters are unreferenced but necessary for identical function calls to spkezp_c
-{
-	// not using: targ, et, ref, abcorr, obs, lt
-	(void)targ;
-	(void)et;
-	(void)ref;
-	(void)abcorr;
-	(void)obs;
-	(void)lt;
-
-	int j;
-	for (j = 0; j < 3; j++)
-	{
-		ptarg[j] = (SpiceDouble)0.0;
-	}
-}
-
-
-
-/* Function imitating spkezr_c but always returning the SSB as the body poisition and zero as the body speed.
-   Only used when SSB_CENTERED	=1
-   */
-void return_SSBr(	ConstSpiceChar    * targ,
-					SpiceDouble         et,
-					ConstSpiceChar    * ref,
-					ConstSpiceChar    * abcorr,
-					ConstSpiceChar    * obs,
-					SpiceDouble         ptarg[6],
-					SpiceDouble       * lt) // Most parameters are unreferenced but necessary for identical function calls to spkezp_c
-{
-	// not using: targ, et, ref, abcorr, obs, lt
-	(void)targ;
-	(void)et;
-	(void)ref;
-	(void)abcorr;
-	(void)obs;
-	(void)lt;
-
-	int j;
-	for (j = 0; j < 6; j++)
-	{
-		ptarg[j] = (SpiceDouble)0.0;
-	}
 }
 
 

@@ -744,7 +744,7 @@ int read_configuration(configuration_values *config_data)
 	configuration_readout config =
 	{
 		/* [simulation] */
-		.algo = (char *)malloc(11),
+		.algo = (char *)malloc(11), // not C90 compatible
 		.ssbc = 0,
 		.finaltime = (char *)malloc(101),
 		.starttimes = (char *)malloc(101),

@@ -5,21 +5,9 @@
 
 int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *statefile)
 {
-	// Select body position function to use ((*bodyPosFP) for spice, return_SSB for (0,0,0))
-	void(*bodyPosFP)(ConstSpiceChar *, SpiceDouble, ConstSpiceChar *, ConstSpiceChar *, ConstSpiceChar *, SpiceDouble[3], SpiceDouble *);
-	if (config_data->ssb_centered == 1)
-	{
-		bodyPosFP = &return_SSBr;
-	}
-	else
-	{
-		bodyPosFP = &spkezr_c;
-	}
-
 	// Create some variables
 	int stepcount = 0, substepcount = 0, j = 0, k = 0, m = 0, interp_ret = 0;
-	SpiceDouble lt						// return value of spkezp_c that is not used
-		, h = 10000.0					// [s] (initial) step size
+	SpiceDouble h = 10000.0				// [s] (initial) step size
 		, hp2							// [s^2] h squared
 		, tEps = config_data->e_target	// [km] error allowed per step
 		, tEps_p = 0.0;					// [km] temporary storage of partial error per space dimension
@@ -52,7 +40,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 #pragma omp critical(SPICE)
 		{
 			// Critical section is only executed on one thread at a time (spice is not threadsafe)
-			(*bodyPosFP)(config_data->body_char[j], nstate[6], "ECLIPJ2000", "NONE", "0", body[8][j], &lt);
+			get_body_state(config_data, j, &nstate[6], &body[8]);
 		}
 	}
 
@@ -167,7 +155,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 					// Get new end state of body
 #pragma omp critical(SPICE)
 					{
-						(*bodyPosFP)(config_data->body_char[j], time[8], "ECLIPJ2000", "NONE", "0", body[8][j], &lt);
+						get_body_state(config_data, j, &time[8], &body[8]);
 					}
 
 					// Interpolate body states
@@ -182,7 +170,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 						{
 							for (m = 2; m < 8; m++) // body[8][j] already done above
 							{
-								(*bodyPosFP)(config_data->body_char[j], time[m], "ECLIPJ2000", "NONE", "0", body[m][j], &lt);
+								get_body_state(config_data, j, &time[m], &body[m]);
 							}
 						}
 					}
@@ -194,7 +182,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 						//printf("\nbefore: h = %.8le, time[1] = %.8le, tEpsMax = %.8le, tEps = %.8le ",h,time[1],tEpsMax,tEps);
 						for (m = 2; m < 9; m++)
 						{
-							(*bodyPosFP)(config_data->body_char[j], time[m], "ECLIPJ2000", "NONE", "0", body[m][j], &lt);
+							get_body_state(config_data, j, &time[m], &body[m]);
 						}
 					}
 				}

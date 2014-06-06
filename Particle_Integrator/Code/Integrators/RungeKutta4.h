@@ -2,21 +2,9 @@
 
 int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *statefile)
 {
-	// Select body position function to use ((*bodyPosFP) for spice, return_SSB for (0,0,0))
-	void(*bodyPosFP)(SpiceInt, SpiceDouble, ConstSpiceChar *, ConstSpiceChar *, SpiceInt, SpiceDouble[3], SpiceDouble *);
-	if (config_data->ssb_centered == 1)
-	{
-		bodyPosFP = &return_SSB;
-	}
-	else
-	{
-		bodyPosFP = &spkezp_c;
-	}
-
 	//Create some variables
 	int j, i = 0;
-	SpiceDouble lt		// return value of spkezp_c that is not used
-		, dt			// [s] time step
+	SpiceDouble dt		// [s] time step
 		, dt2;			// [s] dt/2
 
 	//Create body arrays and set initial body positions
@@ -42,12 +30,12 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 #pragma omp critical(SPICE)
 		{
 			//Critical section is only executed on one thread at a time (spice is not threadsafe)
-			(*bodyPosFP)(config_data->body_int[j], nstate[6], "ECLIPJ2000", "NONE", 0, body_end[j], &lt);
+			get_body_state(config_data, j, &nstate[6], &body_end);
 		}
 	}
 
 	//Create some more variables
-	SpiceDouble initPos[3], initVel[3], dir_SSB[3], initTime, abs_acc;
+	SpiceDouble initPos[3], initVel[3], dir_SSB[3], initTime, nextInitTime, abs_acc;
 	SpiceDouble k_acc_1[3], k_acc_2[3], k_acc_3[3], k_acc_4[3];
 	SpiceDouble k_vel_1[3], k_vel_2[3], k_vel_3[3], k_vel_4[3];
 
@@ -99,6 +87,7 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 		abs_acc = sqrt(k_acc_1[0] * k_acc_1[0] + k_acc_1[1] * k_acc_1[1] + k_acc_1[2] * k_acc_1[2]);
 		dt = (config_data->dv_step / abs_acc);
 		dt2 = dt / 2;
+		nextInitTime = initTime + dt;
 
 #ifdef __WTIMESTEP
 		if (dt < dtmin) // calculate smallest time step
@@ -115,7 +104,7 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 		// End integration on time
 		if (config_data->endontime)
 		{
-			if (initTime + dt > config_data->final_time)
+			if (nextInitTime > config_data->final_time)
 			{
 				dt = config_data->final_time - initTime;
 				dt2 = dt / 2;
@@ -128,7 +117,7 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 #pragma omp critical(SPICE)
 			{
 				//Critical section is only executed on one thread at a time (spice is not threadsafe)
-				(*bodyPosFP)(config_data->body_int[j], initTime + dt, "ECLIPJ2000", "NONE", 0, body_end[j], &lt);
+				get_body_state(config_data, j, &nextInitTime, &body_end);
 			} // ~94% of all computing time is spent here, mostly in spkgps
 			body_mid[j][0] = (body_pre[j][0] + body_end[j][0]) / 2;
 			body_mid[j][1] = (body_pre[j][1] + body_end[j][1]) / 2;
@@ -169,7 +158,7 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 		nstate[3] = initVel[0] + dt * (k_acc_1[0] + 2 * k_acc_2[0] + 2 * k_acc_3[0] + k_acc_4[0]) / 6;
 		nstate[4] = initVel[1] + dt * (k_acc_1[1] + 2 * k_acc_2[1] + 2 * k_acc_3[1] + k_acc_4[1]) / 6;
 		nstate[5] = initVel[2] + dt * (k_acc_1[2] + 2 * k_acc_2[2] + 2 * k_acc_3[2] + k_acc_4[2]) / 6;
-		nstate[6] = initTime + dt;
+		nstate[6] = nextInitTime;
 
 		//Increase StepCount
 		i++;
