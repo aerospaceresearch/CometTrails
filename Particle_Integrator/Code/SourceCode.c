@@ -272,6 +272,7 @@ int main(void)
 	fopen_s(&already_done, already_done_path, "r+");
 	if (already_done == NULL)
 	{
+		printf("\n\n First run. Creating processed_particles.txt");
 		for (e = 0; e < 3; e++)
 		{
 			fopen_s(&already_done, already_done_path, "w");
@@ -445,7 +446,7 @@ int main(void)
 						if (e == 2)
 						{
 							//err = 1;
-							printf("\n\nerror: could not write to progress.txt	(non-relevant)");
+							printf("\n\nwarning: could not write to progress.txt	(non-relevant)");
 							break;
 						}
 					}
@@ -533,7 +534,7 @@ int main(void)
 bool particle_already_processed(int p, char already_done_path[])
 {
 	FILE* check;
-	char temp[6] = "";
+	char temp[16] = "";
 	int particle_ID;
 	bool answer = false;
 #pragma omp critical(ALREADYDONE)
@@ -541,7 +542,7 @@ bool particle_already_processed(int p, char already_done_path[])
 		fopen_s(&check, already_done_path, "r");
 		if (check != NULL)
 		{
-			while (fgets(temp, 6, check) != NULL)
+			while (fgets(temp, 16, check) != NULL)
 			{
 				sscanf(temp, "%d", &particle_ID);
 				if (particle_ID == p)
@@ -550,6 +551,10 @@ bool particle_already_processed(int p, char already_done_path[])
 				}
 			}
 			fclose(check);
+		}
+		else
+		{
+			printf("\n\nwarning: could not access processed_particles.txt");
 		}
 	}
 
@@ -1007,7 +1012,7 @@ int convert_results_into_binary(configuration_values config_data, int particles_
 	result_array[0][1] = (float)(config_data.first_particle_number + particles_count - 1);
 	result_array[0][2] = (float)config_data.particle_mass;
 	result_array[0][3] = (float)config_data.particle_density;
-	result_array[0][4] = 0;
+	result_array[0][4] = (float)config_data.beta;
 	result_array[0][5] = 0;
 	result_array[0][6] = 0;
 
@@ -1095,8 +1100,7 @@ int convert_results_into_binary(configuration_values config_data, int particles_
 	}
 	//Save result_array as binary file and delete text files
 	FILE *binout;
-	char binary_path[260] = "";
-	sprintf_s(binary_path, 260, "%s.ctwu", config_data.outputpath);
+	char binary_path[260] = "OUTPUT" OS_SEP "binary_output.ctwu";
 	fopen_s(&binout, binary_path, "wb");
 	if (binout == NULL)
 	{
