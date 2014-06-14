@@ -86,8 +86,6 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 		//Set dynamic step size
 		abs_acc = sqrt(k_acc_1[0] * k_acc_1[0] + k_acc_1[1] * k_acc_1[1] + k_acc_1[2] * k_acc_1[2]);
 		dt = (config_data->dv_step / abs_acc);
-		dt2 = dt / 2;
-		nextInitTime = initTime + dt;
 
 #ifdef __WTIMESTEP
 		if (dt < dtmin) // calculate smallest time step
@@ -107,9 +105,11 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 			if (nextInitTime > config_data->final_time)
 			{
 				dt = config_data->final_time - initTime;
-				dt2 = dt / 2;
 			}
 		}
+
+		dt2 = dt / 2;
+		nextInitTime = initTime + dt;
 
 		//Get body positions with SPICE
 		for (j = 0; j < config_data->N_bodys; j++)
