@@ -77,15 +77,40 @@ int convert_results_into_binary(configuration_values config_data, int particles_
 void printinfo();
 
 //Main Program
-int main(void)
+int main(int argc, char *argv[])
 {
 	// Version and build info output
 	printinfo();
 
 	//Create some variables
-	int j, e, p, g, c, error_code = 0, particles_count = 0, particles_done = 0, nCommentLines = 0;
+	int j, k, e, p, g, c, error_code = 0, particles_count = 0, particles_done = 0, nCommentLines = 0;
 	char temp[260], *next_token = NULL, already_done_path[260] = "INPUT" OS_SEP "processed_particles.txt";
 	bool commentLine = false;
+
+	// Check for command-line argument -t: save runtime.txt file, for example for MATLAB processing
+	FILE* runtimefn;
+	bool printtimefile = 0;
+	if (argc >= 2)
+	{
+		for (j = 0; j < argc; j++)
+		{
+			if (j)
+			{
+				printf("\nInput argument set: ");
+				for (k = 0; k < strlen(argv[j]); k++)
+				{
+					printf("%c", argv[j][k]);
+				}
+			}
+			if (strcmp(argv[j], "-t") == 0)
+			{
+				printf("\n Will save runtime.txt.");
+				fopen_s(&runtimefn, "runtime.txt", "w");
+				printtimefile = 1;
+				break;
+			}
+		}
+	}
 
 	// Initialize config_data
 	configuration_values config_data = 
@@ -480,6 +505,18 @@ int main(void)
 			clock_t end = clock();
 			double elapsed_time = (end - start) / (double)CLOCKS_PER_SEC;
 			printf("\n\n Elapsed time: %1.3f s", elapsed_time);
+
+			if (printtimefile == 1)
+			{
+				if (runtimefn == NULL)
+				{
+					printf("\n\nwarning: could not write to runtime.txt	(non-relevant)");
+				}
+				else
+				{
+					fprintf(runtimefn, "%.8le", elapsed_time);
+				}
+			}
 		}
 #endif // __WTIMING
 	}
