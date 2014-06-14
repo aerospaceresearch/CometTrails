@@ -102,7 +102,7 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 		// End integration on time
 		if (config_data->endontime)
 		{
-			if (nextInitTime > config_data->final_time)
+			if ((initTime + dt) > config_data->final_time)
 			{
 				dt = config_data->final_time - initTime;
 			}
