@@ -306,17 +306,18 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		// Increase StepCount
 		stepcount++;
 
-		// Save nth state
+		//Save nth state
 #ifdef __SaveRateOpt
-		if ((stepcount % config_data->n_opt) == 0)
+		if (stepcount >= config_data->n_opt)
 #else
-		if ((stepcount % config_data->n) == 0)
+		if (stepcount >= config_data->n)
 #endif // __SaveRateOpt
 		{
 			if (nstate[6] > config_data->start_time_save)
 			{
 				printpdata(statefile, nstate);
 			}
+			stepcount = 0;
 		}
 	}
 

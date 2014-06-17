@@ -3,7 +3,7 @@
 int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *statefile)
 {
 	//Create some variables
-	int j, i = 0;
+	int j, stepcount = 0;
 	SpiceDouble dt		// [s] time step
 		, dt2;			// [s] dt/2
 
@@ -161,25 +161,25 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 		nstate[6] = nextInitTime;
 
 		//Increase StepCount
-		i++;
-
+		stepcount++;
+		
 		//Save nth state
 #ifdef __SaveRateOpt
-		if (i == config_data->n_opt)
+		if (stepcount >= config_data->n_opt)
 #else
-		if (i == config_data->n)
+		if (i >= config_data->n)
 #endif // __SaveRateOpt
 		{
 			if (nstate[6] > config_data->start_time_save)
 			{
 				printpdata(statefile, nstate);
 			}
-			i = 0;
+			stepcount = 0;
 		}
 	}
 
 	//Print last state to file and close file
-	if (i /*!= 0*/)
+	if (stepcount /*!= 0*/)
 	{
 		printpdata(statefile, nstate);
 	}
