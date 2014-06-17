@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
 			if (j)
 			{
 				printf("\nInput argument set: ");
-				for (k = 0; k < strlen(argv[j]); k++)
+				for (k = 0; k < (int)strlen(argv[j]); k++)
 				{
 					printf("%c", argv[j][k]);
 				}

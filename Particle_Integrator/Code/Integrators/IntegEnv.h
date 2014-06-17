@@ -205,7 +205,7 @@ int calc_save_factor(configuration_values *config_data, SpiceDouble dir_SSB[], S
 	// save_factor: multiplication factor for the stepcount, value range: 1 ... maxmultiplier
 	config_data->step_multiplier = (maxmultiplier * planetary_influence) / (sf + planetary_influence) + 1;
 
-	printf("\n step_multiplier: %.6le, planetary_influence: %.6le", config_data->step_multiplier, planetary_influence);
+	//printf("\n step_multiplier: %.6le, planetary_influence: %.6le", config_data->step_multiplier, planetary_influence);
 
 	return 0;
 }

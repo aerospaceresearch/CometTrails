@@ -305,6 +305,8 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		}
 #endif
 
+		stepcount++;
+
 		// Increase StepCount
 #ifdef __SaveRateOpt
 		floating_stepcount += config_data->step_multiplier;
