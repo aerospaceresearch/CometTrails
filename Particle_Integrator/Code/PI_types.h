@@ -17,7 +17,7 @@ typedef struct
 	ConstSpiceChar *body_char[10];
 	SpiceDouble GM[12];				// [km^3/s^2]
 	int n;
-	int n_opt;
+	SpiceDouble step_multiplier;	// [1]
 	int first_particle_number;
 	SpiceDouble particle_mass;		// [kg]
 	SpiceDouble particle_density;	// [kg/m^-3]

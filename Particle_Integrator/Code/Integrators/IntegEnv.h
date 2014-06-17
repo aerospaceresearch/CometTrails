@@ -126,17 +126,23 @@ void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceD
 
 #ifdef __SaveRateOpt
 /* Calculate a factor for more saved steps when planets are significantly influencing the acceleration. Only sun > save_factor = ~1, Only planets: save_factor = 0 */
-int calc_save_factor(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel)
+int calc_save_factor(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel, SpiceDouble *Vel, SpiceDouble dt)
 {
 	SpiceDouble r_body[3]		// [km]
 		, absr = 0.				// [km]
 		, r3					// [km^3]
-		, GMr3;					// [1/s^2]
+		, GMr3					// [1/s^2]
+		, iVel[3];				// Intermediate Speed [km/s]
 
 	SpiceDouble solAccel[3]		// [km/s^2]
-		, save_factor;			// [1]
+		, planetary_influence;	// [1]
 
-	int b, noSun = 1; // body
+	int b						// body
+		, noSun = 1				// becomes 0 if the sun is included
+		, maxmultiplier = 40	// maximum multiplication of saverate
+		, slope = 4				// multiplication at: solar acceleration = planetary acceleration
+		, sf;
+	sf = maxmultiplier / (slope - 1) - 1;
 
 	for (b = 0; b < config_data->N_bodys; b++)
 	{
@@ -155,6 +161,32 @@ int calc_save_factor(configuration_values *config_data, SpiceDouble dir_SSB[], S
 			solAccel[1] = GMr3 * r_body[1];
 			solAccel[2] = GMr3 * r_body[2];
 
+			// Solar radiation pressure, PR drag and sw drag
+
+			SpiceDouble c = 299792.458	// [km/s]
+				, Sn[3]					// [km]
+				, rp					// [km/s]
+				, GM_r2;				// [km/s^2]
+
+			// Calculate velocity intermediate value
+			iVel[0] = Vel[0] + dt * solAccel[0];
+			iVel[1] = Vel[1] + dt * solAccel[1];
+			iVel[2] = Vel[2] + dt * solAccel[2];
+
+			// normalized body direction value
+			Sn[0] = -r_body[0] / absr;
+			Sn[1] = -r_body[1] / absr;
+			Sn[2] = -r_body[2] / absr;
+
+			rp = iVel[0] * Sn[0] + iVel[1] * Sn[1] + iVel[2] * Sn[2]; // absolute change of the radius between body and particle [km/s]
+
+			// add radiation pressure acceleration and Poynting-Robertson drag acceleration
+			GM_r2 = config_data->betaGM / (absr * absr);
+
+			solAccel[0] += GM_r2 * ((1. - SWDF * rp / c) * Sn[0] - SWDF * iVel[0] / c);
+			solAccel[1] += GM_r2 * ((1. - SWDF * rp / c) * Sn[1] - SWDF * iVel[1] / c);
+			solAccel[2] += GM_r2 * ((1. - SWDF * rp / c) * Sn[2] - SWDF * iVel[2] / c);
+
 			noSun = 0;
 		}
 	}
@@ -164,22 +196,16 @@ int calc_save_factor(configuration_values *config_data, SpiceDouble dir_SSB[], S
 		return 1;
 	}
 
-	// Save factor: (solar acceleration / total acceleration)^(0.5)
-	save_factor = (solAccel[0] * solAccel[0] + solAccel[1] * solAccel[1] + solAccel[2] * solAccel[2]) / (accel[0] * accel[0] + accel[1] * accel[1] + accel[2] * accel[2]);
+	// planetary_influence: (diff(solar acceleration, total acceleration) / solar acceleration)^2, value range: 0 ... +inf
+	planetary_influence = (solAccel[0] - accel[0]) * (solAccel[0] - accel[0]) + (solAccel[1] - accel[1]) * (solAccel[1] - accel[1]) + (solAccel[2] - accel[2]) * (solAccel[2] - accel[2]) 
+		/ (solAccel[0] * solAccel[0] + solAccel[1] * solAccel[1] + solAccel[2] * solAccel[2]);
 
-	if (save_factor < 0.8)
-	{
-		//printf("\n save_factor: %.6le, n_opt: %d", save_factor, config_data->n_opt);
-		config_data->n_opt = (int)(sqrt(sqrt(save_factor)) * config_data->n);
-		if (config_data->n_opt < 1)
-		{
-			config_data->n_opt = 1;
-		}
-	}
-	else
-	{
-		config_data->n_opt = config_data->n;
-	}
+	planetary_influence = sqrt(planetary_influence); // de-square factor
+
+	// save_factor: multiplication factor for the stepcount, value range: 1 ... maxmultiplier
+	config_data->step_multiplier = (maxmultiplier * planetary_influence) / (sf + planetary_influence) + 1;
+
+	printf("\n step_multiplier: %.6le, planetary_influence: %.6le", config_data->step_multiplier, planetary_influence);
 
 	return 0;
 }

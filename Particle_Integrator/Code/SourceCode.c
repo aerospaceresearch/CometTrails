@@ -960,8 +960,8 @@ int read_configuration(configuration_values *config_data)
 		}
 	}
 #ifdef __SaveRateOpt
-	// Initialize optimized n value with normal n value
-	config_data->n_opt = config_data->n;
+	// Initialize step multiplier value with 1
+	config_data->step_multiplier = 1.;
 #endif
 
 	//Set which particle to start and end with (particle number, from 1 to the number of particles in the input file)
