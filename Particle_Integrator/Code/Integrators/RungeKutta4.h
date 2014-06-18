@@ -3,10 +3,11 @@
 int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *statefile)
 {
 	//Create some variables
-	int j, i = 0;
-	SpiceDouble dt		// [s] time step
-		, dt2;			// [s] dt/2
-
+	int j;
+	SpiceDouble dt					// [s] time step
+		, dt2						// [s] dt/2
+		, floating_stepcount = 0.;	// not strictly the step counter
+	
 	//Create body arrays and set initial body positions
 	SpiceDouble **body_pre, **body_mid, **body_end;
 	body_pre = malloc(config_data->N_bodys * sizeof(SpiceDouble *));
@@ -41,7 +42,7 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 
 #ifdef __WTIMESTEP
 	SpiceDouble dtmin = config_data->final_time - nstate[6], dtmax = 0.0;
-	int numsteps = 0;
+	int stepcount = 0;
 #endif
 
 	//Integrate
@@ -75,7 +76,7 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 #ifdef __SaveRateOpt
 		if (nstate[6] > config_data->start_time_save)
 		{
-			if (calc_save_factor(config_data, dir_SSB, &body_pre, k_acc_1))
+			if (calc_save_factor(config_data, dir_SSB, &body_pre, k_acc_1, initVel, 0.0))
 			{
 				printf("\n\nerror: Sun missing.");
 				return 1;
@@ -96,7 +97,7 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 		{
 			dtmax = dt;
 		}
-		numsteps++;
+		stepcount++;
 #endif // __WTIMESTEP
 
 		// End integration on time
@@ -160,26 +161,26 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 		nstate[5] = initVel[2] + dt * (k_acc_1[2] + 2 * k_acc_2[2] + 2 * k_acc_3[2] + k_acc_4[2]) / 6;
 		nstate[6] = nextInitTime;
 
-		//Increase StepCount
-		i++;
-
-		//Save nth state
+		// Increase StepCount
 #ifdef __SaveRateOpt
-		if (i == config_data->n_opt)
+		floating_stepcount += config_data->step_multiplier;
 #else
-		if (i == config_data->n)
+		floating_stepcount += 1.;
 #endif // __SaveRateOpt
+
+		// Save nth state
+		if (floating_stepcount >= config_data->n)
 		{
 			if (nstate[6] > config_data->start_time_save)
 			{
 				printpdata(statefile, nstate);
 			}
-			i = 0;
+			floating_stepcount = 0.;
 		}
 	}
 
 	//Print last state to file and close file
-	if (i /*!= 0*/)
+	if (floating_stepcount != 0.)
 	{
 		printpdata(statefile, nstate);
 	}
@@ -198,7 +199,7 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 #ifdef __WTIMESTEP
 	printf("\n   Smallest time step: %.6le s", dtmin);
 	printf("  -  Largest time step: %.6le s", dtmax);
-	printf("  -  Total number of steps: %d", numsteps);
+	printf("  -  Total number of steps: %d", stepcount);
 #endif
 
 	return 0;

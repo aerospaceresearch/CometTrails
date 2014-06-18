@@ -8,6 +8,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 	// Create some variables
 	int stepcount = 0, substepcount = 0, j = 0, k = 0, m = 0, interp_ret = 0;
 	SpiceDouble h = 10000.0				// [s] (initial) step size
+		, floating_stepcount = 0.		// not strictly the step counter
 		, hp2							// [s^2] h squared
 		, tEps = config_data->e_target	// [km] error allowed per step
 		, tEps_p = 0.0;					// [km] temporary storage of partial error per space dimension
@@ -94,6 +95,18 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		dir_SSB[2] = -(initPos[2]);
 		calc_accel(config_data, dir_SSB, &body[1], f[0], initVel, 0.);
 
+#ifdef __SaveRateOpt
+		// save rate optimization for close encounters with un-sunny bodies.
+		if ((nstate[6] + h) > config_data->start_time_save)
+		{
+			if (calc_save_factor(config_data, dir_SSB, &body[1], f[0], initVel, 0.))
+			{
+				printf("\n\nerror: Sun missing.");
+				return 1;
+			}
+		}
+#endif
+
 		// dtime: time difference compared to time[0]
 		dtime[1] = time[1] - time[0];
 
@@ -128,17 +141,6 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 			dtime[8] = dtime[1] + h;
 
 			precompute_dtime_powers(config_data, &dtp, dtime);
-
-#ifdef __SaveRateOpt
-			if ((nstate[6] + h) > config_data->start_time_save)
-			{
-				if (calc_save_factor(config_data, dir_SSB, &body[1], f[0]))
-				{
-					printf("\n\nerror: Sun missing.");
-					return 1;
-				}
-			}
-#endif
 
 			for (j = 2; j < 9; j++)
 			{
@@ -303,25 +305,28 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		}
 #endif
 
-		// Increase StepCount
 		stepcount++;
 
-		// Save nth state
+		// Increase StepCount
 #ifdef __SaveRateOpt
-		if ((stepcount % config_data->n_opt) == 0)
+		floating_stepcount += config_data->step_multiplier;
 #else
-		if ((stepcount % config_data->n) == 0)
+		floating_stepcount += 1.;
 #endif // __SaveRateOpt
+
+		// Save nth state
+		if (floating_stepcount >= config_data->n)
 		{
 			if (nstate[6] > config_data->start_time_save)
 			{
 				printpdata(statefile, nstate);
 			}
+			floating_stepcount = 0.;
 		}
 	}
 
 	// Print last state to file and close file
-	if (stepcount /*!= 0*/)
+	if (floating_stepcount != 0.)
 	{
 		printpdata(statefile, nstate);
 	}
