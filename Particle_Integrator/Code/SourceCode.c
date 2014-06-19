@@ -236,6 +236,8 @@ int main(int argc, char *argv[])
 	else {
 		printf("\n saving output as	  text (.txt)");
 	}
+	printf("\n e_save_slope		= %d", config_data.e_save_slope);
+	printf("\n e_save_max  		= %d", config_data.e_save_max);
 	if (config_data.endontime){
 		printf("\n end on time		  yes");
 	}
@@ -735,14 +737,14 @@ static int handler(void* user, const char* section, const char* name, const char
 	else if (MATCH("rk76", "IORDER")) {
 		pconfig->iorder = atoi(value);
 	}
-	else if (MATCH("simulation", "SAVE_NTH_MULTIPLIER")) {
+	else if (MATCH("simulation", "SAVE_NTH_MULTIPLIER")) { // backward compatibility, now in [saving]
 		free(pconfig->mult);
 		pconfig->mult = strdup(value);
 	}
 	else if (MATCH("simulation", "NUMBER_OF_THREADS")) {
 		pconfig->nthreads = atoi(value);
 	}
-	else if (MATCH("simulation", "SAVE_AS_BINARY")) {
+	else if (MATCH("simulation", "SAVE_AS_BINARY")) { // backward compatibility, now in [saving]
 		pconfig->savebin = atoi(value);
 	}
 	else if (MATCH("particles", "PARTICLE_INPUT_FILE_NAME")) {
@@ -768,6 +770,19 @@ static int handler(void* user, const char* section, const char* name, const char
 	else if (MATCH("particles", "FIRST_PARTICLE_NUMBER")) {
 		pconfig->fpnum = atoi(value);
 	}
+	else if (MATCH("saving", "SAVE_NTH_MULTIPLIER")) {
+		free(pconfig->mult);
+		pconfig->mult = strdup(value);
+	}
+	else if (MATCH("saving", "SAVE_AS_BINARY")) {
+		pconfig->savebin = atoi(value);
+	}
+	else if (MATCH("saving", "ENCOUNTER_SLOPE")) {
+		pconfig->e_slope = atoi(value);
+	}
+	else if (MATCH("saving", "ENCOUNTER_MAX")) {
+		pconfig->e_max = atoi(value);
+	}
 	else {
 		return 0;  /* unknown section/name, error */
 	}
@@ -785,25 +800,29 @@ int read_configuration(configuration_values *config_data)
 	// Set default values: initialize config struct
 	configuration_readout config =
 	{
-		/* [simulation] */
-		.algo = (char *)malloc(11), // not C90 compatible
-		.ssbc = 0,
-		.finaltime = (char *)malloc(101),
-		.starttimes = (char *)malloc(101),
-		.nbodys = 0,
-		.bodysid = (char *)malloc(41),
-		.mult = (char *)malloc(31),
-		.nthreads = 1,
-		.savebin = 1,
-		.endontime = 0,
-
 		/* [particles] */
-		.inputfn = (char *)malloc(261),
+		.inputfn = (char *)malloc(261), // not C90 compatible
 		.outputfn = (char *)malloc(261),
 		.pmass = (char *)malloc(31),
 		.q_pr = (char *)malloc(31),
 		.pdensity = (char *)malloc(31),
 		.fpnum = 1,
+
+		/* [simulation] */
+		.algo = (char *)malloc(11),
+		.ssbc = 0,
+		.finaltime = (char *)malloc(101),
+		.starttimes = (char *)malloc(101),
+		.nbodys = 0,
+		.bodysid = (char *)malloc(41),
+		.nthreads = 1,
+		.endontime = 0,
+
+		/* [saving] */
+		.mult = (char *)malloc(31),
+		.savebin = 1,
+		.e_slope = 4,
+		.e_max = 40,
 
 		/* Algorithm-specific */
 		/* [rk4] */
@@ -831,7 +850,7 @@ int read_configuration(configuration_values *config_data)
 	}
 	
 	// set default values for char*s
-	strcpy(config.algo, 10, "RK4");
+	strcpy(config.algo, 10, "RK76");
 	strcpy(config.finaltime, 100, "");
 	strcpy(config.starttimes, 100, "1 JAN 1000");
 	strcpy(config.bodysid, 40, "10");
@@ -878,6 +897,12 @@ int read_configuration(configuration_values *config_data)
 
 	//Save output as binary?
 	config_data->save_as_binary = (bool)config.savebin;
+
+	//Saving increase slope
+	config_data->e_save_slope = config.e_slope;
+
+	//Maximum increase in save rate
+	config_data->e_save_max = config.e_max;
 
 	//End on time?
 	config_data->endontime = (bool)config.endontime;

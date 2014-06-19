@@ -26,6 +26,8 @@ typedef struct
 	SpiceDouble solar_lum;			// [W]
 	SpiceDouble beta;				// [-]
 	SpiceDouble betaGM;				// [km^3/s^2]
+	int e_save_slope;
+	int e_save_max;
 	// Algorithm-specific
 	SpiceDouble dv_step;			// [km/s^2]
 	SpiceDouble e_target;			// [km]
@@ -42,9 +44,7 @@ typedef struct
 	char *starttimes;
 	int nbodys;
 	char *bodysid;
-	char *mult;
 	int nthreads;
-	int savebin;
 	int endontime;
 	// Particles
 	char *inputfn;
@@ -53,6 +53,11 @@ typedef struct
 	char *q_pr;
 	char *pdensity;
 	int fpnum;
+	// Saving
+	int savebin;
+	char *mult;
+	int e_slope;
+	int e_max;
 	// Algorithm-specific
 	char *dvstep;
 	char *etarget;

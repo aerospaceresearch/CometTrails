@@ -139,10 +139,9 @@ int calc_save_factor(configuration_values *config_data, SpiceDouble dir_SSB[], S
 
 	int b						// body
 		, noSun = 1				// becomes 0 if the sun is included
-		, maxmultiplier = 40	// maximum multiplication of saverate
-		, slope = 4				// multiplication at: solar acceleration = planetary acceleration
 		, sf;
-	sf = maxmultiplier / (slope - 1) - 1;
+
+	sf = config_data->e_save_max / (config_data->e_save_slope - 1) - 1;
 
 	for (b = 0; b < config_data->N_bodys; b++)
 	{
@@ -202,8 +201,8 @@ int calc_save_factor(configuration_values *config_data, SpiceDouble dir_SSB[], S
 
 	planetary_influence = sqrt(planetary_influence); // de-square factor
 
-	// save_factor: multiplication factor for the stepcount, value range: 1 ... maxmultiplier
-	config_data->step_multiplier = (maxmultiplier * planetary_influence) / (sf + planetary_influence) + 1;
+	// save_factor: multiplication factor for the stepcount, value range: 1 ... config_data->e_save_max
+	config_data->step_multiplier = (config_data->e_save_max * planetary_influence) / (sf + planetary_influence) + 1;
 
 	//printf("\n step_multiplier: %.6le, planetary_influence: %.6le", config_data->step_multiplier, planetary_influence);
 
