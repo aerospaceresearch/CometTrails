@@ -712,7 +712,7 @@ static int handler(void* user, const char* section, const char* name, const char
 		free(pconfig->finaltime);
 		pconfig->finaltime = strdup(value);
 	}
-	else if (MATCH("simulation", "START_TIME_SAVE")) {
+	else if (MATCH("simulation", "START_TIME_SAVE")) { // backward compatibility, now in [saving]
 		free(pconfig->starttimes);
 		pconfig->starttimes = strdup(value);
 	}
@@ -783,7 +783,14 @@ static int handler(void* user, const char* section, const char* name, const char
 	else if (MATCH("saving", "ENCOUNTER_MAX")) {
 		pconfig->e_max = atoi(value);
 	}
+	else if (MATCH("saving", "START_TIME_SAVE")) {
+		free(pconfig->starttimes);
+		pconfig->starttimes = strdup(value);
+	}
 	else {
+#if defined(RELTYPERWDI) || defined(RELTYPEDEB)
+		printf("\n\nwarning: Unknown configuration setting.");
+#endif // RELTYPERWDI || RELTYPEDEB
 		return 0;  /* unknown section/name, error */
 	}
 	return 1;
