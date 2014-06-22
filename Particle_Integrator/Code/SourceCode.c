@@ -70,10 +70,10 @@
 #include <RungeKutta4.h>
 #include <RungeKutta76.h>
 
-bool particle_already_processed(int p, char already_done_path[]);
+bool particle_in_file(int p, char already_done_path[]);
 bool particle_incomplete(char outputpath[], SpiceDouble *nstate);
 int read_configuration(configuration_values *config_data);
-int convert_results_into_binary(configuration_values config_data, int particles_count, double *multiplication_factor, char already_done_path[]);
+int convert_results_into_binary(configuration_values config_data, int particles_count, double *multiplication_factor, char already_done_path[], char encounter_path[]);
 void printinfo();
 
 //Main Program
@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
 
 	//Create some variables
 	int j, k, e, p, g, c, error_code = 0, particles_count = 0, particles_done = 0, nCommentLines = 0;
-	char temp[260], *next_token = NULL, already_done_path[260] = "INPUT" OS_SEP "processed_particles.txt";
+	char temp[260], *next_token = NULL, already_done_path[260] = "INPUT" OS_SEP "processed_particles.txt", encounter_path[260] = "INPUT" OS_SEP "encounter_particles.txt";
 	bool commentLine = false;
 
 	// Check for command-line argument -t: save runtime.txt file, for example for MATLAB processing
@@ -354,7 +354,7 @@ int main(int argc, char *argv[])
 			int err = 0;
 
 			//Check if particle has already been processed completely
-			if (particle_already_processed(p, already_done_path))
+			if (particle_in_file(p, already_done_path))
 			{
 				printf("\n particle #%d	has already been processed", p);
 				continue;
@@ -461,7 +461,41 @@ int main(int argc, char *argv[])
 						break;
 					}
 				}
+			} // END omp critical(ALREADYDONE)
+
+			//Write the particle number to the encounter-list file if it encountered the body
+			if (config_data.only_encounters)
+			{
+				FILE* enc;
+				if (config_data.encounter)
+				{
+#pragma omp critical(ENCOUNTERF)
+					{
+						particles_done++;
+						for (e = 0; e < 3; e++)
+						{
+							fopen_s(&enc, encounter_path, "a+");
+							if (enc == NULL)
+							{
+								SLEEP(100);
+								if (e == 2)
+								{
+									err = 1;
+									printf("\n\nerror: could not write to encounter_particles.txt");
+									break;
+								}
+							}
+							else
+							{
+								fprintf(enc, "%d\n", p);
+								fclose(enc);
+								break;
+							}
+						}
+					} // END omp critical(ENCOUNTERF)
+				}
 			}
+
 #pragma omp critical(PROCESS)
 			{
 				for (e = 0; e < 3; e++)
@@ -485,7 +519,7 @@ int main(int argc, char *argv[])
 						break;
 					}
 				}
-			}
+			} // END omp critical(PROCESS)
 			if (err != 0)
 			{
 				error_code += err;
@@ -537,7 +571,7 @@ int main(int argc, char *argv[])
 		{
 			multiplication_factor[j] = particles_start[j][6];
 		}
-		if (convert_results_into_binary(config_data, particles_count, multiplication_factor, already_done_path) != 0)
+		if (convert_results_into_binary(config_data, particles_count, multiplication_factor, already_done_path, encounter_path) != 0)
 		{
 			printf("\n\nerror: could not convert to binary");
 			return 2;	
@@ -570,7 +604,7 @@ int main(int argc, char *argv[])
 
 //Functions
 
-bool particle_already_processed(int p, char already_done_path[])
+bool particle_in_file(int p, char path[])
 {
 	FILE* check;
 	char temp[16] = "";
@@ -578,7 +612,7 @@ bool particle_already_processed(int p, char already_done_path[])
 	bool answer = false;
 #pragma omp critical(ALREADYDONE)
 	{
-		fopen_s(&check, already_done_path, "r");
+		fopen_s(&check, path, "r");
 		if (check != NULL)
 		{
 			while (fgets(temp, 16, check) != NULL)
@@ -787,6 +821,16 @@ static int handler(void* user, const char* section, const char* name, const char
 		free(pconfig->starttimes);
 		pconfig->starttimes = strdup(value);
 	}
+	else if (MATCH("encounter", "ONLY_ENCOUNTERS")) {
+		pconfig->enc_only = atoi(value);
+	}
+	else if (MATCH("encounter", "ENCOUNTER_INT")) {
+		pconfig->enc_int = atoi(value);
+	}
+	else if (MATCH("encounter", "ENCOUNTER_RAD")) {
+		free(pconfig->enc_rad);
+		pconfig->enc_rad = strdup(value);
+	}
 	else {
 #if defined(RELTYPERWDI) || defined(RELTYPEDEB)
 		printf("\n\nwarning: Unknown configuration setting.");
@@ -831,6 +875,11 @@ int read_configuration(configuration_values *config_data)
 		.e_slope = 4,
 		.e_max = 40,
 
+		/* [encounter] */
+		.enc_only = 0,
+		.enc_int = 3,
+		.enc_rad = (char *)malloc(31),
+
 		/* Algorithm-specific */
 		/* [rk4] */
 		.dvstep = (char *)malloc(31),
@@ -849,6 +898,7 @@ int read_configuration(configuration_values *config_data)
 		|| config.pmass == NULL
 		|| config.q_pr == NULL
 		|| config.pdensity == NULL
+		|| config.enc_rad == NULL
 		|| config.dvstep == NULL
 		|| config.etarget == NULL) // At least one alloc ran OOM
 	{
@@ -867,6 +917,7 @@ int read_configuration(configuration_values *config_data)
 	strcpy(config.pmass, 30, "0.");
 	strcpy(config.q_pr, 30, "1.");
 	strcpy(config.pdensity, 30, "1000.");
+	strcpy(config.enc_rad, 30, "1.0e7");
 	strcpy(config.dvstep, 30, "10e-3");
 	strcpy(config.etarget, 30, "10e-18");
 
@@ -1034,6 +1085,14 @@ int read_configuration(configuration_values *config_data)
 		sscanf(config.pdensity, "%lf", &config_data->particle_density);
 	}
 
+	// encounter-variables
+	config_data->only_encounters = (bool)config.enc_only;
+	if (config_data->only_encounters == 1)
+	{
+		sscanf(config.enc_rad, "%lf", &config_data->encounter_rad);
+		config_data->encounter_body_int = (bool)config.enc_int;
+	}
+
 	// Free memory allocated for config char*s
 	free(config.algo);
 	free(config.finaltime);
@@ -1045,6 +1104,7 @@ int read_configuration(configuration_values *config_data)
 	free(config.pmass);
 	free(config.q_pr);
 	free(config.pdensity);
+	free(config.enc_rad);
 	free(config.dvstep);
 	free(config.etarget);
 
@@ -1053,11 +1113,11 @@ int read_configuration(configuration_values *config_data)
 
 
 
-int convert_results_into_binary(configuration_values config_data, int particles_count, double *multiplication_factor, char already_done_path[])
+int convert_results_into_binary(configuration_values config_data, int particles_count, double *multiplication_factor, char already_done_path[], char encounter_path[])
 {
 	printf("\n Converting text output into binary...	");
 	//Create some variables
-	int j, e, c, h, state_count, i, result_array_length=1, particle_header_row, l, g;
+	int j, e, c, h, state_count, i, result_array_length=1, particle_header_row, l, g, save_particle = 1;
 	FILE *output_file;
 	char *next_token = NULL, temp[260];
 	double tempdouble;
@@ -1088,83 +1148,90 @@ int convert_results_into_binary(configuration_values config_data, int particles_
 	//Read in all the particles and save them in result_array
 	for (j = 0; j < particles_count; j++)
 	{
-		state_count = 0;
-		char particle_path[260] = "";
-		sprintf_s(particle_path, 260, "%s_#%d%s", config_data.outputpath, (j + config_data.first_particle_number), ".txt");
-		for (e = 0; e < 3; e++)
+		if (config_data.only_encounters)
 		{
-			fopen_s(&output_file, particle_path, "r");
-			if (output_file == NULL)
+			save_particle = particle_in_file(j, encounter_path);
+		} // else 1
+		if (save_particle)
+		{
+			state_count = 0;
+			char particle_path[260] = "";
+			sprintf_s(particle_path, 260, "%s_#%d%s", config_data.outputpath, (j + config_data.first_particle_number), ".txt");
+			for (e = 0; e < 3; e++)
 			{
-				SLEEP(100);
-				if (e == 2)
+				fopen_s(&output_file, particle_path, "r");
+				if (output_file == NULL)
 				{
-					printf("\n\nerror: could not open .txt file particle #%d for conversion", j + config_data.first_particle_number);
-					return 2;
+					SLEEP(100);
+					if (e == 2)
+					{
+						printf("\n\nerror: could not open .txt file particle #%d for conversion", j + config_data.first_particle_number);
+						return 2;
+					}
+				}
+				else
+				{
+					break;
 				}
 			}
-			else
+			while ((c = fgetc(output_file)) != EOF)
 			{
-				break;
+				if (c == '\n')
+				{
+					state_count++;
+				}
 			}
-		}
-		while ((c = fgetc(output_file)) != EOF)
-		{
-			if (c == '\n')
-			{
-				state_count++;
-			}
-		}
-		particle_header_row = result_array_length;
-		result_array_length += state_count + 1;
-		result_array = realloc(result_array, (result_array_length)*sizeof(float *));
-		if (result_array == NULL)
-		{
-			printf("\n\nerror: could not allocate result_array (OOM)");
-			return 2;
-		}
-		for (i = particle_header_row; i < result_array_length; i++)
-		{
-			result_array[i] = malloc(7 * sizeof(float));
-			if (result_array[i] == NULL)
+			particle_header_row = result_array_length;
+			result_array_length += state_count + 1;
+			result_array = realloc(result_array, (result_array_length)*sizeof(float *));
+			if (result_array == NULL)
 			{
 				printf("\n\nerror: could not allocate result_array (OOM)");
 				return 2;
 			}
-		}
-		for (i = 0; i < 4; i++)
-		{
-			result_array[particle_header_row][i] = 0;
-		}
-		result_array[particle_header_row][4] = (float)(j + config_data.first_particle_number);
-		result_array[particle_header_row][5] = (float)(multiplication_factor[j]);
-		result_array[particle_header_row][6] = 0;
-		rewind(output_file);
-		l = particle_header_row;
-		while (fgets(temp, sizeof(temp), output_file) != NULL)
-		{
-			l++;
-			char* cval = strtok_r(temp, "\t", &next_token);
-			for (g = 0; g < 5; g++)
+			for (i = particle_header_row; i < result_array_length; i++)
 			{
-				sscanf(cval, "%lf", &tempdouble);
-				result_array[l][g] = (float)tempdouble;
-				cval = strtok_r(NULL, "\t", &next_token);
+				result_array[i] = malloc(7 * sizeof(float));
+				if (result_array[i] == NULL)
+				{
+					printf("\n\nerror: could not allocate result_array (OOM)");
+					return 2;
+				}
 			}
-			sscanf(cval, "%lf", &tempdouble);
-			result_array[l][5] = (float)tempdouble;
-			cval = strtok_r(NULL, "\n", &next_token);
-			sscanf(cval, "%lf", &tempdouble);
-			result_array[l][6] = (float)tempdouble;
-		}
-		fclose(output_file);
-		if (j == 0)
-		{
-			result_array[0][5] = result_array[particle_header_row + 1][6];
-		}
-		if (j == particles_count - 1)
-		{
-			result_array[0][6] = result_array[particle_header_row + 1][6];
+			for (i = 0; i < 4; i++)
+			{
+				result_array[particle_header_row][i] = 0;
+			}
+			result_array[particle_header_row][4] = (float)(j + config_data.first_particle_number);
+			result_array[particle_header_row][5] = (float)(multiplication_factor[j]);
+			result_array[particle_header_row][6] = 0;
+			rewind(output_file);
+			l = particle_header_row;
+			while (fgets(temp, sizeof(temp), output_file) != NULL)
+			{
+				l++;
+				char* cval = strtok_r(temp, "\t", &next_token);
+				for (g = 0; g < 5; g++)
+				{
+					sscanf(cval, "%lf", &tempdouble);
+					result_array[l][g] = (float)tempdouble;
+					cval = strtok_r(NULL, "\t", &next_token);
+				}
+				sscanf(cval, "%lf", &tempdouble);
+				result_array[l][5] = (float)tempdouble;
+				cval = strtok_r(NULL, "\n", &next_token);
+				sscanf(cval, "%lf", &tempdouble);
+				result_array[l][6] = (float)tempdouble;
+			}
+			fclose(output_file);
+			if (j == 0)
+			{
+				result_array[0][5] = result_array[particle_header_row + 1][6];
+			}
+			if (j == particles_count - 1)
+			{
+				result_array[0][6] = result_array[particle_header_row + 1][6];
+			}
 		}
 	}
 	//Save result_array as binary file and delete text files

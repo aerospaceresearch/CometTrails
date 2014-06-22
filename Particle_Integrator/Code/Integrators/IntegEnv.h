@@ -93,6 +93,18 @@ void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceD
 		accel[1] += GMr3 * r_body[1];
 		// printf("\n GMr3 * r_body[0]: %.16le", GMr3 * r_body[0]);
 
+		// is it an encounter?
+		if (config_data->body_int[b] == config_data->encounter_body_int)
+		{
+			if (config_data->only_encounters) // config: active?
+			{
+				if (absr <= config_data->encounter_rad)
+				{
+					config_data->encounter = 1;
+				}
+			}
+		}
+
 		if (config_data->body_int[b] == 10)
 		{
 			SpiceDouble c = 299792.458	// [km/s]

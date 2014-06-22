@@ -32,6 +32,11 @@ typedef struct
 	SpiceDouble dv_step;			// [km/s^2]
 	SpiceDouble e_target;			// [km]
 	int interp_order;
+	// Encounter
+	bool only_encounters;
+	bool encounter;
+	int encounter_body_int;
+	SpiceDouble encounter_rad;		// [km]
 } configuration_values;
 
 /* struct type for the config file readout */
@@ -62,6 +67,10 @@ typedef struct
 	char *dvstep;
 	char *etarget;
 	int iorder;
+	// Encounter
+	int enc_only;
+	int enc_int;
+	char *enc_rad;
 } configuration_readout;
 
 /* struct type for precomputed dtime powers for interpolation */
