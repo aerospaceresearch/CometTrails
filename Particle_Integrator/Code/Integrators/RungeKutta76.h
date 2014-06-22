@@ -345,7 +345,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 	interp_body_states_free(config_data, &body_c);
 
 #ifdef __WSTEPINFO
-	printf("\n            	 Smallest time step: %.4le s", hmin);
+	printf("\n  Smallest time step: %.4le s", hmin);
 	printf("  -  Largest time step: %.4le s", hmax);
 	printf("  -  Total number of steps: %d", stepcount);
 	printf("  -  Total number of substeps: %d", substepcount);

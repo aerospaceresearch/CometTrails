@@ -104,7 +104,7 @@ void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceD
 					{
 						config_data->encounter = 1;
 #ifdef __WSTEPINFO
-						printf("\n encounter registered.");
+						printf("\n  encounter registered.");
 #endif
 					}
 				}

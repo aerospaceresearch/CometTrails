@@ -270,8 +270,8 @@ int main(int argc, char *argv[])
 	printf("\n save_nth		= %d", config_data.n);
 	if (config_data.only_encounters)
 	{
-		printf("\n encounter_rad  	= %d", config_data.encounter_rad);
-		printf("\n encounter_int	= %d", config_data.encounter_body_int);
+		printf("\n encounter_rad  	= %.12le", config_data.encounter_rad);
+		printf("\n encounter_int		= %d", config_data.encounter_body_int);
 	}
 
 	//Check for progress.txt
@@ -498,6 +498,7 @@ int main(int argc, char *argv[])
 							}
 						}
 					} // END omp critical(ENCOUNTERF)
+					config_data.encounter = 0;
 				}
 			}
 
@@ -1095,7 +1096,7 @@ int read_configuration(configuration_values *config_data)
 	if (config_data->only_encounters == 1)
 	{
 		sscanf(config.enc_rad, "%lf", &config_data->encounter_rad);
-		config_data->encounter_body_int = (bool)config.enc_int;
+		config_data->encounter_body_int = config.enc_int;
 	}
 
 	// Free memory allocated for config char*s

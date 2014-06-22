@@ -197,7 +197,7 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 	free(body_end);
 
 #ifdef __WSTEPINFO
-	printf("\n   Smallest time step: %.6le s", dtmin);
+	printf("\n  Smallest time step: %.6le s", dtmin);
 	printf("  -  Largest time step: %.6le s", dtmax);
 	printf("  -  Total number of steps: %d", stepcount);
 #endif
