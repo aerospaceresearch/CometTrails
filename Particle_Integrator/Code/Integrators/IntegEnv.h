@@ -100,7 +100,13 @@ void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceD
 			{
 				if (absr <= config_data->encounter_rad)
 				{
-					config_data->encounter = 1;
+					if (config_data->encounter == 0)
+					{
+						config_data->encounter = 1;
+#ifdef __WSTEPINFO
+						printf("\n encounter registered.");
+#endif
+					}
 				}
 			}
 		}

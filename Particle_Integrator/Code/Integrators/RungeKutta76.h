@@ -61,7 +61,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 
 	dtime[0] = 0;
 
-#ifdef __WTIMESTEP
+#ifdef __WSTEPINFO
 	SpiceDouble hmin = config_data->final_time - nstate[6], hmax = 0.0, maxEps = 0;
 #endif
 
@@ -267,7 +267,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 			substepcount++;
 		} while (tEps > config_data->e_target); // while the error is too big.
 
-#ifdef __WTIMESTEP
+#ifdef __WSTEPINFO
 		if (tEps > maxEps)
 		{
 			maxEps = tEps;
@@ -294,7 +294,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		// Save previous time for body location interpolation
 		time[0] = time[1];
 
-#ifdef __WTIMESTEP
+#ifdef __WSTEPINFO
 		if (h < hmin) // calculate smallest time step
 		{
 			hmin = h;
@@ -344,7 +344,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 	// Free body state coefficient memory
 	interp_body_states_free(config_data, &body_c);
 
-#ifdef __WTIMESTEP
+#ifdef __WSTEPINFO
 	printf("\n            	 Smallest time step: %.4le s", hmin);
 	printf("  -  Largest time step: %.4le s", hmax);
 	printf("  -  Total number of steps: %d", stepcount);

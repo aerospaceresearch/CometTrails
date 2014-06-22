@@ -40,7 +40,7 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 	SpiceDouble k_acc_1[3], k_acc_2[3], k_acc_3[3], k_acc_4[3];
 	SpiceDouble k_vel_1[3], k_vel_2[3], k_vel_3[3], k_vel_4[3];
 
-#ifdef __WTIMESTEP
+#ifdef __WSTEPINFO
 	SpiceDouble dtmin = config_data->final_time - nstate[6], dtmax = 0.0;
 	int stepcount = 0;
 #endif
@@ -88,7 +88,7 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 		abs_acc = sqrt(k_acc_1[0] * k_acc_1[0] + k_acc_1[1] * k_acc_1[1] + k_acc_1[2] * k_acc_1[2]);
 		dt = (config_data->dv_step / abs_acc);
 
-#ifdef __WTIMESTEP
+#ifdef __WSTEPINFO
 		if (dt < dtmin) // calculate smallest time step
 		{
 			dtmin = dt;
@@ -98,7 +98,7 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 			dtmax = dt;
 		}
 		stepcount++;
-#endif // __WTIMESTEP
+#endif // __WSTEPINFO
 
 		// End integration on time
 		if (config_data->endontime)
@@ -196,7 +196,7 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 	free(body_mid);
 	free(body_end);
 
-#ifdef __WTIMESTEP
+#ifdef __WSTEPINFO
 	printf("\n   Smallest time step: %.6le s", dtmin);
 	printf("  -  Largest time step: %.6le s", dtmax);
 	printf("  -  Total number of steps: %d", stepcount);

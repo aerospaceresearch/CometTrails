@@ -73,7 +73,7 @@
 bool particle_in_file(int p, char already_done_path[]);
 bool particle_incomplete(char outputpath[], SpiceDouble *nstate);
 int read_configuration(configuration_values *config_data);
-int convert_results_into_binary(configuration_values config_data, int particles_count, double *multiplication_factor, char already_done_path[], char encounter_path[]);
+int convert_results_into_binary(configuration_values *config_data, int particles_count, double *multiplication_factor, char already_done_path[], char encounter_path[]);
 void printinfo();
 
 //Main Program
@@ -268,6 +268,11 @@ int main(int argc, char *argv[])
 	if (config_data.first_particle_number != 1)
 		printf("\n first_particle_number	= %d", config_data.first_particle_number);
 	printf("\n save_nth		= %d", config_data.n);
+	if (config_data.only_encounters)
+	{
+		printf("\n encounter_rad  	= %d", config_data.encounter_rad);
+		printf("\n encounter_int	= %d", config_data.encounter_body_int);
+	}
 
 	//Check for progress.txt
 	FILE *progress, *already_done;
@@ -571,7 +576,7 @@ int main(int argc, char *argv[])
 		{
 			multiplication_factor[j] = particles_start[j][6];
 		}
-		if (convert_results_into_binary(config_data, particles_count, multiplication_factor, already_done_path, encounter_path) != 0)
+		if (convert_results_into_binary(&config_data, particles_count, multiplication_factor, already_done_path, encounter_path) != 0)
 		{
 			printf("\n\nerror: could not convert to binary");
 			return 2;	
@@ -1113,7 +1118,7 @@ int read_configuration(configuration_values *config_data)
 
 
 
-int convert_results_into_binary(configuration_values config_data, int particles_count, double *multiplication_factor, char already_done_path[], char encounter_path[])
+int convert_results_into_binary(configuration_values *config_data, int particles_count, double *multiplication_factor, char already_done_path[], char encounter_path[])
 {
 	printf("\n Converting text output into binary...	");
 	//Create some variables
@@ -1137,18 +1142,18 @@ int convert_results_into_binary(configuration_values config_data, int particles_
 		return 2;
 	}
 	//Set file header
-	result_array[0][0] = (float)config_data.first_particle_number;
-	result_array[0][1] = (float)(config_data.first_particle_number + particles_count - 1);
-	result_array[0][2] = (float)config_data.particle_mass;
-	result_array[0][3] = (float)config_data.particle_density;
-	result_array[0][4] = (float)config_data.beta;
+	result_array[0][0] = (float)config_data->first_particle_number;
+	result_array[0][1] = (float)(config_data->first_particle_number + particles_count - 1);
+	result_array[0][2] = (float)config_data->particle_mass;
+	result_array[0][3] = (float)config_data->particle_density;
+	result_array[0][4] = (float)config_data->beta;
 	result_array[0][5] = 0;
 	result_array[0][6] = 0;
 
 	//Read in all the particles and save them in result_array
 	for (j = 0; j < particles_count; j++)
 	{
-		if (config_data.only_encounters)
+		if (config_data->only_encounters)
 		{
 			save_particle = particle_in_file(j, encounter_path);
 		} // else 1
@@ -1156,7 +1161,7 @@ int convert_results_into_binary(configuration_values config_data, int particles_
 		{
 			state_count = 0;
 			char particle_path[260] = "";
-			sprintf_s(particle_path, 260, "%s_#%d%s", config_data.outputpath, (j + config_data.first_particle_number), ".txt");
+			sprintf_s(particle_path, 260, "%s_#%d%s", config_data->outputpath, (j + config_data->first_particle_number), ".txt");
 			for (e = 0; e < 3; e++)
 			{
 				fopen_s(&output_file, particle_path, "r");
@@ -1165,7 +1170,7 @@ int convert_results_into_binary(configuration_values config_data, int particles_
 					SLEEP(100);
 					if (e == 2)
 					{
-						printf("\n\nerror: could not open .txt file particle #%d for conversion", j + config_data.first_particle_number);
+						printf("\n\nerror: could not open .txt file particle #%d for conversion", j + config_data->first_particle_number);
 						return 2;
 					}
 				}
@@ -1202,7 +1207,7 @@ int convert_results_into_binary(configuration_values config_data, int particles_
 			{
 				result_array[particle_header_row][i] = 0;
 			}
-			result_array[particle_header_row][4] = (float)(j + config_data.first_particle_number);
+			result_array[particle_header_row][4] = (float)(j + config_data->first_particle_number);
 			result_array[particle_header_row][5] = (float)(multiplication_factor[j]);
 			result_array[particle_header_row][6] = 0;
 			rewind(output_file);
@@ -1255,7 +1260,7 @@ int convert_results_into_binary(configuration_values config_data, int particles_
 	{
 		remove(already_done_path);
 		char particle_path[260] = "";
-		sprintf_s(particle_path, 260, "%s_#%d%s", config_data.outputpath, (j + config_data.first_particle_number), ".txt");
+		sprintf_s(particle_path, 260, "%s_#%d%s", config_data->outputpath, (j + config_data->first_particle_number), ".txt");
 		if (remove(particle_path) != 0)
 		{
 			printf("\n\nerror: could not delete .txt file after conversion");
@@ -1289,8 +1294,8 @@ void printinfo()
 		printf("TIMING ");
 	#endif // __WTIMING
 
-	#ifdef __WTIMESTEP
-		printf("WTIMESTEP ");
+	#ifdef __WSTEPINFO
+		printf("WSTEPINFO ");
 	#endif // __WSTEPINFO
 
 	#ifdef __PRD
