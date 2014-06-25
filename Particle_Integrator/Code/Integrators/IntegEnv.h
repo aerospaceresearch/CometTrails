@@ -94,21 +94,16 @@ void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceD
 		// printf("\n GMr3 * r_body[0]: %.16le", GMr3 * r_body[0]);
 
 		// is it an encounter?
-		if (config_data->body_int[b] == config_data->encounter_body_int)
+		if ((config_data->body_int[b] == config_data->encounter_body_int) // only for the relevant body
+			&& (config_data->only_encounters) // if feature is active
+			&& (absr <= config_data->encounter_rad) // within given radius defining an encounter
+			&& (config_data->saving == 1) // within the saving time period, encounters before that are ignored (set in the integrator)
+			&& (config_data->encounter == 0)) // not already set to 1 previously
 		{
-			if (config_data->only_encounters) // config: active?
-			{
-				if (absr <= config_data->encounter_rad)
-				{
-					if (config_data->encounter == 0)
-					{
-						config_data->encounter = 1;
+			config_data->encounter = 1;
 #ifdef __WSTEPINFO
-						printf("\n  encounter registered.");
+			printf("\n  encounter registered.");
 #endif
-					}
-				}
-			}
 		}
 
 		if (config_data->body_int[b] == 10)

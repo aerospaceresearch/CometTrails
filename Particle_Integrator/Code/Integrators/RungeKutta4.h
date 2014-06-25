@@ -7,6 +7,8 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 	SpiceDouble dt					// [s] time step
 		, dt2						// [s] dt/2
 		, floating_stepcount = 0.;	// not strictly the step counter
+
+	config_data->saving = 0;
 	
 	//Create body arrays and set initial body positions
 	SpiceDouble **body_pre, **body_mid, **body_end;
@@ -73,9 +75,18 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 		k_vel_1[1] = initVel[1];
 		k_vel_1[2] = initVel[2];
 
+		//Set dynamic step size
+		abs_acc = sqrt(k_acc_1[0] * k_acc_1[0] + k_acc_1[1] * k_acc_1[1] + k_acc_1[2] * k_acc_1[2]);
+		dt = (config_data->dv_step / abs_acc);
+
 #ifdef __SaveRateOpt
-		if (nstate[6] > config_data->start_time_save)
+		if (nstate[6] + dt > config_data->start_time_save)
 		{
+			if (config_data->saving != 1)
+			{
+				config_data->saving = 1;
+			}
+
 			if (calc_save_factor(config_data, dir_SSB, &body_pre, k_acc_1, initVel, 0.0))
 			{
 				printf("\n\nerror: Sun missing.");
@@ -83,10 +94,6 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 			}
 		}
 #endif
-
-		//Set dynamic step size
-		abs_acc = sqrt(k_acc_1[0] * k_acc_1[0] + k_acc_1[1] * k_acc_1[1] + k_acc_1[2] * k_acc_1[2]);
-		dt = (config_data->dv_step / abs_acc);
 
 #ifdef __WSTEPINFO
 		if (dt < dtmin) // calculate smallest time step
@@ -171,7 +178,7 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 		// Save nth state
 		if (floating_stepcount >= config_data->n)
 		{
-			if (nstate[6] > config_data->start_time_save)
+			if (config_data->saving == 1)
 			{
 				printpdata(statefile, nstate);
 			}

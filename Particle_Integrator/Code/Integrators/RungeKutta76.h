@@ -13,6 +13,8 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		, tEps = config_data->e_target	// [km] error allowed per step
 		, tEps_p = 0.0;					// [km] temporary storage of partial error per space dimension
 
+	config_data->saving = 0;
+
 	// Create body arrays and set initial body positions
 	SpiceDouble **(body[9]); // body[0] is t = time[1] - h, body[1] is t = time[1], ..., body[8] is t = time[1] + h
 
@@ -99,6 +101,11 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		// save rate optimization for close encounters with un-sunny bodies.
 		if ((nstate[6] + h) > config_data->start_time_save)
 		{
+			if (config_data->saving != 1)
+			{
+				config_data->saving = 1;
+			}
+
 			if (calc_save_factor(config_data, dir_SSB, &body[1], f[0], initVel, 0.))
 			{
 				printf("\n\nerror: Sun missing.");
@@ -317,7 +324,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		// Save nth state
 		if (floating_stepcount >= config_data->n)
 		{
-			if (nstate[6] > config_data->start_time_save)
+			if (config_data->saving == 1)
 			{
 				printpdata(statefile, nstate);
 			}

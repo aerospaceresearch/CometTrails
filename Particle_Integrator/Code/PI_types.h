@@ -28,6 +28,7 @@ typedef struct
 	SpiceDouble betaGM;				// [km^3/s^2]
 	int e_save_slope;
 	int e_save_max;
+	bool saving;
 	// Algorithm-specific
 	SpiceDouble dv_step;			// [km/s^2]
 	SpiceDouble e_target;			// [km]
