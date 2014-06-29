@@ -1,0 +1,6 @@
+\begindata
+
+KERNELS_TO_LOAD=('generic_kernels/lsk/naif0010.tls',
+'generic_kernels/pck/de-403-masses.tpc')
+
+\begintext
