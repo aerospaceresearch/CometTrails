@@ -93,6 +93,19 @@ void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceD
 		accel[1] += GMr3 * r_body[1];
 		// printf("\n GMr3 * r_body[0]: %.16le", GMr3 * r_body[0]);
 
+		// is it an encounter?
+		if ((config_data->body_int[b] == config_data->encounter_body_int) // only for the relevant body
+			&& (config_data->only_encounters) // if feature is active
+			&& (absr <= config_data->encounter_rad) // within given radius defining an encounter
+			&& (config_data->saving == 1) // within the saving time period, encounters before that are ignored (set in the integrator)
+			&& (config_data->encounter == 0)) // not already set to 1 previously
+		{
+			config_data->encounter = 1;
+#ifdef __WSTEPINFO
+			printf("\n  encounter registered.");
+#endif
+		}
+
 		if (config_data->body_int[b] == 10)
 		{
 			SpiceDouble c = 299792.458	// [km/s]
@@ -139,10 +152,9 @@ int calc_save_factor(configuration_values *config_data, SpiceDouble dir_SSB[], S
 
 	int b						// body
 		, noSun = 1				// becomes 0 if the sun is included
-		, maxmultiplier = 40	// maximum multiplication of saverate
-		, slope = 4				// multiplication at: solar acceleration = planetary acceleration
 		, sf;
-	sf = maxmultiplier / (slope - 1) - 1;
+
+	sf = config_data->e_save_max / (config_data->e_save_slope - 1) - 1;
 
 	for (b = 0; b < config_data->N_bodys; b++)
 	{
@@ -202,8 +214,8 @@ int calc_save_factor(configuration_values *config_data, SpiceDouble dir_SSB[], S
 
 	planetary_influence = sqrt(planetary_influence); // de-square factor
 
-	// save_factor: multiplication factor for the stepcount, value range: 1 ... maxmultiplier
-	config_data->step_multiplier = (maxmultiplier * planetary_influence) / (sf + planetary_influence) + 1;
+	// save_factor: multiplication factor for the stepcount, value range: 1 ... config_data->e_save_max
+	config_data->step_multiplier = (config_data->e_save_max * planetary_influence) / (sf + planetary_influence) + 1;
 
 	//printf("\n step_multiplier: %.6le, planetary_influence: %.6le", config_data->step_multiplier, planetary_influence);
 

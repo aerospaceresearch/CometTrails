@@ -13,6 +13,8 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		, tEps = config_data->e_target	// [km] error allowed per step
 		, tEps_p = 0.0;					// [km] temporary storage of partial error per space dimension
 
+	config_data->saving = 0;
+
 	// Create body arrays and set initial body positions
 	SpiceDouble **(body[9]); // body[0] is t = time[1] - h, body[1] is t = time[1], ..., body[8] is t = time[1] + h
 
@@ -61,7 +63,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 
 	dtime[0] = 0;
 
-#ifdef __WTIMESTEP
+#ifdef __WSTEPINFO
 	SpiceDouble hmin = config_data->final_time - nstate[6], hmax = 0.0, maxEps = 0;
 #endif
 
@@ -99,6 +101,11 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		// save rate optimization for close encounters with un-sunny bodies.
 		if ((nstate[6] + h) > config_data->start_time_save)
 		{
+			if (config_data->saving != 1)
+			{
+				config_data->saving = 1;
+			}
+
 			if (calc_save_factor(config_data, dir_SSB, &body[1], f[0], initVel, 0.))
 			{
 				printf("\n\nerror: Sun missing.");
@@ -267,7 +274,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 			substepcount++;
 		} while (tEps > config_data->e_target); // while the error is too big.
 
-#ifdef __WTIMESTEP
+#ifdef __WSTEPINFO
 		if (tEps > maxEps)
 		{
 			maxEps = tEps;
@@ -294,7 +301,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		// Save previous time for body location interpolation
 		time[0] = time[1];
 
-#ifdef __WTIMESTEP
+#ifdef __WSTEPINFO
 		if (h < hmin) // calculate smallest time step
 		{
 			hmin = h;
@@ -317,7 +324,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		// Save nth state
 		if (floating_stepcount >= config_data->n)
 		{
-			if (nstate[6] > config_data->start_time_save)
+			if (config_data->saving == 1)
 			{
 				printpdata(statefile, nstate);
 			}
@@ -344,8 +351,8 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 	// Free body state coefficient memory
 	interp_body_states_free(config_data, &body_c);
 
-#ifdef __WTIMESTEP
-	printf("\n            	 Smallest time step: %.4le s", hmin);
+#ifdef __WSTEPINFO
+	printf("\n  Smallest time step: %.4le s", hmin);
 	printf("  -  Largest time step: %.4le s", hmax);
 	printf("  -  Total number of steps: %d", stepcount);
 	printf("  -  Total number of substeps: %d", substepcount);

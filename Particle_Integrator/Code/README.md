@@ -1,5 +1,5 @@
 # ParticleIntegrator
-**Version 0.14**
+**Version 0.15**
 
 ##Instructions
 
@@ -20,6 +20,19 @@ Regards, Max
 
 
 ##Changelog
+
+__0.15__	-30.06.2014-:
+-	5th order body interpolation for RK7(6) integrator (default), second order and disabled 
+		interpolation available as configuration options.
+-	add option to filter results from the binary output that do not contain a body encounter
+		(within a certain radius of a given body) during the saving period.
+-	fixes and improvements for the save rate increase close to planets, with options for the 
+		slope and maximum increase.
+-	static linking on linux for improved portability
+-	better memory handling and allocation behaviour
+-	SAVE_NTH_MULTIPLIER properly implemented for RK7(6), imitating RK4 behaviour
+-	fix for ENDONTIME in RK4 and move this option move from CMake to configuration
+-	command line option for runtime file output (for testing)
 
 __0.14__	-25.05.2014-:
 -	output can be converted to binary to save space (SAVE_AS_BINARY = 1)
