@@ -10,7 +10,7 @@ set (PROJECT_SOURCE_DIR ${CMAKE_SOURCE_DIR})
 # VERSION
 
 set (ParticleIntegrator_VERSION_MAJOR 0)
-set (ParticleIntegrator_VERSION_MINOR 14)
+set (ParticleIntegrator_VERSION_MINOR 15)
 
 
 # Passing on CMake Settings

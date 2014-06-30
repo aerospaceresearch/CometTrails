@@ -218,6 +218,47 @@ pip-log.txt
 ## Project-specific
 #############
 
+####
+## Particle Analyser
+####
+
+# Build directory
+Particle_Analyser/Code/CMake/
+Particle_Analyser/Code/CMake32/
+Particle_Analyser/Code/CMake64/
+
+# cspice
+Particle_Analyser/Code/cspice/data/
+Particle_Analyser/Code/cspice/doc/
+Particle_Analyser/Code/cspice/etc/
+Particle_Analyser/Code/cspice/exe/
+Particle_Analyser/Code/cspice/include/
+Particle_Analyser/Code/cspice/lib/
+Particle_Analyser/Code/cspice/src/
+Particle_Analyser/Code/cspice/makeall.bat
+
+Particle_Analyser/Code/cspice32/data/
+Particle_Analyser/Code/cspice32/doc/
+Particle_Analyser/Code/cspice32/etc/
+Particle_Analyser/Code/cspice32/exe/
+Particle_Analyser/Code/cspice32/include/
+Particle_Analyser/Code/cspice32/lib/
+Particle_Analyser/Code/cspice32/src/
+Particle_Analyser/Code/cspice32/makeall.bat
+
+Particle_Analyser/Code/cspice64/data/
+Particle_Analyser/Code/cspice64/doc/
+Particle_Analyser/Code/cspice64/etc/
+Particle_Analyser/Code/cspice64/exe/
+Particle_Analyser/Code/cspice64/include/
+Particle_Analyser/Code/cspice64/lib/
+Particle_Analyser/Code/cspice64/src/
+Particle_Analyser/Code/cspice64/makeall.bat
+
+####
+## Particle Integrator
+####
+
 # Build directory
 Particle_Integrator/Code/CMake/
 Particle_Integrator/Code/CMake32/
