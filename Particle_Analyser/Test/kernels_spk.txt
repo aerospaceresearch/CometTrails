@@ -1,0 +1,6 @@
+\begindata
+
+KERNELS_TO_LOAD=('generic_kernels/spk/planets/de430.bsp',
+'generic_kernels/spk/Rosetta/ORHR_______________00122.BSP')
+
+\begintext
