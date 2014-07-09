@@ -727,8 +727,10 @@ bool particle_incomplete(char particle_path[], SpiceDouble *nstate)
 		}
 		if (err != 0)
 		{
+			fclose(check);
 			return false;
 		}
+		fclose(check);
 	}
 	return answer;
 }
@@ -1140,6 +1142,7 @@ int convert_results_into_binary(configuration_values *config_data, int particles
 	if (result_array[0] == NULL)
 	{
 		printf("\n\nerror: could not allocate result_array (OOM)");
+		free(result_array);
 		return 2;
 	}
 	//Set file header
@@ -1189,11 +1192,16 @@ int convert_results_into_binary(configuration_values *config_data, int particles
 			}
 			particle_header_row = result_array_length;
 			result_array_length += state_count + 1;
-			result_array = realloc(result_array, (result_array_length)*sizeof(float *));
-			if (result_array == NULL)
+			float **temp_result_array;
+			temp_result_array = realloc(result_array, (result_array_length)*sizeof(float *));
+			if (temp_result_array == NULL)
 			{
 				printf("\n\nerror: could not allocate result_array (OOM)");
+				free(result_array);
 				return 2;
+			}
+			else{
+				result_array = temp_result_array;
 			}
 			for (i = particle_header_row; i < result_array_length; i++)
 			{
@@ -1201,6 +1209,7 @@ int convert_results_into_binary(configuration_values *config_data, int particles
 				if (result_array[i] == NULL)
 				{
 					printf("\n\nerror: could not allocate result_array (OOM)");
+					free(result_array);
 					return 2;
 				}
 			}
@@ -1247,6 +1256,7 @@ int convert_results_into_binary(configuration_values *config_data, int particles
 	if (binout == NULL)
 	{
 		printf("\n\nerror:	could not create binary output file.\n");
+		free(result_array);
 		return 1;
 	}
 	for (h = 0; h < result_array_length; h++)
