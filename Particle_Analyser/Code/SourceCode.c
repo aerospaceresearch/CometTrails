@@ -331,6 +331,7 @@ char **get_WU_paths(void)
 	if (hFind == INVALID_HANDLE_VALUE){
 		printf("...failed.");
 		printf("\n\nerror: could not find work units in %s", cometwu_path);
+		free(all_wu_paths);
 		return NULL;
 	}
 	all_wu_paths[0] = strdup(FindData.cFileName);
@@ -360,12 +361,14 @@ char **get_WU_paths(void)
 	else{
 		printf("...failed.");
 		printf("\n\nerror: could not find directory %s", cometwu_path);
+		free(all_wu_paths);
 		return NULL;
 	}
 	
 	if (all_wu_count == 0){
 		printf("...failed.");
 		printf("\n\nerror: could not find work units in %s", cometwu_path);
+		free(all_wu_paths);
 		return NULL;
 	}
 	closedir(dir);
@@ -377,6 +380,7 @@ char **get_WU_paths(void)
 	if (wu_paths == NULL){
 		printf("...failed.");
 		printf("\n\nerror: could not allocate wu_paths array (OOM)");
+		free(all_wu_paths);
 		return NULL;
 	}
 
@@ -439,10 +443,13 @@ char **get_WU_paths(void)
 	if (wu_fails != 0){
 		printf("...failed.");
 		printf("\n\nerror: %d work units could not be read", wu_fails);
+		free(wu_paths);
+		free(all_wu_paths);
 		return NULL;
 	}
 	if (wu_count == 0){
 		printf("...no relevant WUs found (%d).", all_wu_count);
+		free(all_wu_paths);
 		return wu_paths;
 	}
 	for (i = 0; i < all_wu_count; i++){
@@ -589,11 +596,16 @@ float *get_particles(char **wu_paths)
 				printf("...no relevant particles found (%d).\n", all_particles_count);
 				return nearest_states;
 			}
-			nearest_states = realloc(nearest_states, particles_count * 12 * sizeof(float));
-			if (nearest_states == NULL){
+			float *temp_nearest_states;
+			temp_nearest_states = realloc(nearest_states, particles_count * 12 * sizeof(float));
+			if (temp_nearest_states == NULL){
 				printf("...failed to load particles.");
 				printf("\n\nerror: could not reallocate nearest_states array (OOM)");
+				free(nearest_states);
 				return NULL;
+			}
+			else{
+				nearest_states = temp_nearest_states;
 			}
 		}
 		printf("...done. %d (%d) particles loaded.", particles_count, all_particles_count);
@@ -852,6 +864,7 @@ int save_target_states(float *target_states)
 		output_array = malloc(particles_count * 3 * sizeof(float));
 		if (output_array == NULL){
 			printf("...failed.\n\nerror: could not allocate output_array (OOM)");
+			fclose(outputfile);
 			return 1;
 		}
 		for (i = 0; i < particles_count; i++){
@@ -885,6 +898,7 @@ int save_target_states(float *target_states)
 			output_array = malloc(particles_count * 11 * sizeof(float));
 			if (output_array == NULL){
 				printf("...failed.\n\nerror: could not allocate output array (OOM)");
+				fclose(outputfile);
 				return 1;
 			}
 			for (i = 0; i < particles_count; i++){
@@ -903,6 +917,7 @@ int save_target_states(float *target_states)
 			output_array = malloc(particles_count * 8 * sizeof(float));
 			if (output_array == NULL){
 				printf("...failed.\n\nerror: could not allocate output array (OOM)");
+				fclose(outputfile);
 				return 1;
 			}
 			for (i = 0; i < particles_count; i++){
