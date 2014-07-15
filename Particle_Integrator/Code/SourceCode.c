@@ -1307,6 +1307,10 @@ void printinfo()
 		printf("SWD ");
 	#endif // __SWD
 
+	#ifdef __Relativity
+		printf("Relativity ");
+	#endif // __Relativity
+
 	#ifdef __SaveRateOpt
 		printf("SaveRateOpt ");
 	#endif // __SaveRateOpt

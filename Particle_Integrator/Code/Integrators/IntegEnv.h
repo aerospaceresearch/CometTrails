@@ -66,12 +66,21 @@ void get_body_state(configuration_values *config_data, int body_index, SpiceDoub
 /* Calculate the acceleration of a particle based on the position of the body relative to the SSB */
 void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel, SpiceDouble *Vel, SpiceDouble dt)
 {
-	SpiceDouble r_body[3]	// [km]
-		, absr = 0.			// [km]
-		, r3				// [km^3]
-		, GMr3				// [1/s^2]
-		, iVel[3];			// Intermediate Speed [km/s]
-	int b; // body
+	SpiceDouble c = 299792.458				// [km/s]
+		, r_body[3]							// [km]
+		, absr = 0.							// [km]
+		, r3								// [km^3]
+		, GMr3								// [1/s^2]
+		, iVel[3]							// Intermediate Speed [km/s]
+		, absrp2							// r^2 [km^2]
+#ifdef __Relativity
+		, absiVel							// absolute Intermediate Speed [km/s]
+		, cp2 = 299792.458 * 299792.458		// [km^2/s^2]
+#endif
+		;
+	int b		// body
+		, i		// count
+		;
 
 	accel[0] = 0;
 	accel[1] = 0;
@@ -108,29 +117,46 @@ void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceD
 
 		if (config_data->body_int[b] == 10)
 		{
-			SpiceDouble c = 299792.458	// [km/s]
-				, Sn[3]					// [km]
+			// Prepare variables for radiation pressure, PR drag, sw drag and relativistic effects
+			SpiceDouble Sn[3]			// [km]
 				, rp					// [km/s]
-				, GM_r2;				// [km/s^2]
+				, rdotv					// [km^2/s]
+				, GM_r2					// [km/s^2]
+				;
 
-			// Calculate velocity intermediate value
-			iVel[0] = Vel[0] + dt * accel[0];
-			iVel[1] = Vel[1] + dt * accel[1];
-			iVel[2] = Vel[2] + dt * accel[2];
+			for (i = 0; i < 3; i++)
+			{
+				// Calculate velocity intermediate value
+				iVel[i] = Vel[i] + dt * accel[i];
 
-			// normalized body direction value
-			Sn[0] = -r_body[0] / absr;
-			Sn[1] = -r_body[1] / absr;
-			Sn[2] = -r_body[2] / absr;
+				// normalized body direction value
+				Sn[i] = -r_body[i] / absr;
+			}
 
 			rp = iVel[0] * Sn[0] + iVel[1] * Sn[1] + iVel[2] * Sn[2]; // absolute change of the radius between body and particle [km/s]
 
-			// add radiation pressure acceleration and Poynting-Robertson drag acceleration
-			GM_r2 = config_data->betaGM / (absr * absr);
+			absrp2 = absr * absr; // abs(radius)
+
+#ifdef __Relativity
+			absiVel = sqrt(iVel[0] * iVel[0] + iVel[1] * iVel[1] + iVel[2] * iVel[2]); // abs(speed)
+			rdotv = r_body[0] * iVel[0] + r_body[1] * iVel[1] + r_body[2] * iVel[2]; // (r * v) (vectors)
+#endif
+
+			GM_r2 = config_data->betaGM / (absrp2);
 			
-			accel[0] += GM_r2 * ((1. - SWDF * rp / c) * Sn[0] - SWDF * iVel[0] / c);
-			accel[1] += GM_r2 * ((1. - SWDF * rp / c) * Sn[1] - SWDF * iVel[1] / c);
-			accel[2] += GM_r2 * ((1. - SWDF * rp / c) * Sn[2] - SWDF * iVel[2] / c);
+			for (i = 0; i < 3; i++)
+			{
+				// add radiation pressure acceleration and Poynting-Robertson drag acceleration
+				accel[i] += GM_r2 * ((1. - SWDF * rp / c) * Sn[i] - SWDF * iVel[i] / c);
+
+#ifdef __Relativity
+				// add relativistic effects
+				// printf("\n relativity: %.10le", config_data->GM[b] / cp2 / absrp2 / absr * (4. * config_data->GM[b] * Sn[i] - absiVel * r_body[i] + 4. * rdotv * iVel[i]));
+				// printf("\n kp2cp2 / absrp2: %.10le", config_data->GM[b] / cp2 / absrp2);
+				// printf("\n rdotv: %.10le", rdotv);
+				accel[i] -= config_data->GM[b] / cp2 / absrp2 / absr * (4. * config_data->GM[b] * Sn[i] - absiVel * r_body[i] + 4. * rdotv * iVel[i]);
+#endif
+			}
 		}
 	}
 }
@@ -141,18 +167,27 @@ void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceD
 /* Calculate a factor for more saved steps when planets are significantly influencing the acceleration. Only sun > save_factor = ~1, Only planets: save_factor = 0 */
 int calc_save_factor(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel, SpiceDouble *Vel, SpiceDouble dt)
 {
-	SpiceDouble r_body[3]		// [km]
-		, absr = 0.				// [km]
-		, r3					// [km^3]
-		, GMr3					// [1/s^2]
-		, iVel[3];				// Intermediate Speed [km/s]
+	SpiceDouble c = 299792.458				// [km/s]
+		, r_body[3]							// [km]
+		, absr = 0.							// [km]
+		, r3								// [km^3]
+		, GMr3								// [1/s^2]
+		, iVel[3]							// Intermediate Speed [km/s]
+		, absrp2							// r^2 [km^2]
+#ifdef __Relativity
+		, absiVel							// absolute Intermediate Speed [km/s]
+		, cp2 = 299792.458 * 299792.458		// [km^2/s^2]
+#endif
+		;
 
 	SpiceDouble solAccel[3]		// [km/s^2]
 		, planetary_influence;	// [1]
 
 	int b						// body
+		, i						// count
 		, noSun = 1				// becomes 0 if the sun is included
-		, sf;
+		, sf					// save factor
+		;
 
 	sf = config_data->e_save_max / (config_data->e_save_slope - 1) - 1;
 
@@ -173,31 +208,43 @@ int calc_save_factor(configuration_values *config_data, SpiceDouble dir_SSB[], S
 			solAccel[1] = GMr3 * r_body[1];
 			solAccel[2] = GMr3 * r_body[2];
 
-			// Solar radiation pressure, PR drag and sw drag
-
-			SpiceDouble c = 299792.458	// [km/s]
-				, Sn[3]					// [km]
+			// Solar radiation pressure, PR drag, sw drag and relativistic effects
+			// Prepare variables
+			SpiceDouble Sn[3]			// [km]
 				, rp					// [km/s]
+				, rdotv					// [km^2/s]
 				, GM_r2;				// [km/s^2]
 
-			// Calculate velocity intermediate value
-			iVel[0] = Vel[0] + dt * solAccel[0];
-			iVel[1] = Vel[1] + dt * solAccel[1];
-			iVel[2] = Vel[2] + dt * solAccel[2];
+			for (i = 0; i < 3; i++)
+			{
+				// Calculate velocity intermediate value
+				iVel[i] = Vel[i] + dt * solAccel[i];
 
-			// normalized body direction value
-			Sn[0] = -r_body[0] / absr;
-			Sn[1] = -r_body[1] / absr;
-			Sn[2] = -r_body[2] / absr;
+				// normalized body direction value
+				Sn[i] = -r_body[i] / absr;
+			}
 
 			rp = iVel[0] * Sn[0] + iVel[1] * Sn[1] + iVel[2] * Sn[2]; // absolute change of the radius between body and particle [km/s]
 
-			// add radiation pressure acceleration and Poynting-Robertson drag acceleration
-			GM_r2 = config_data->betaGM / (absr * absr);
+			absrp2 = absr * absr; // abs(radius)
 
-			solAccel[0] += GM_r2 * ((1. - SWDF * rp / c) * Sn[0] - SWDF * iVel[0] / c);
-			solAccel[1] += GM_r2 * ((1. - SWDF * rp / c) * Sn[1] - SWDF * iVel[1] / c);
-			solAccel[2] += GM_r2 * ((1. - SWDF * rp / c) * Sn[2] - SWDF * iVel[2] / c);
+#ifdef __Relativity
+			absiVel = sqrt(iVel[0] * iVel[0] + iVel[1] * iVel[1] + iVel[2] * iVel[2]); // abs(speed)
+			rdotv = r_body[0] * iVel[0] + r_body[1] * iVel[1] + r_body[2] * iVel[2]; // (r * v) (vectors)
+#endif
+
+			GM_r2 = config_data->betaGM / (absrp2);
+
+			for (i = 0; i < 3; i++)
+			{
+				// add radiation pressure acceleration and Poynting-Robertson drag acceleration
+				solAccel[i] += GM_r2 * ((1. - SWDF * rp / c) * Sn[i] - SWDF * iVel[i] / c);
+
+#ifdef __Relativity
+				// add relativistic effects
+				solAccel[i] -= config_data->GM[b] / cp2 / absrp2 / absr * (4. * config_data->GM[b] * Sn[i] - absiVel * r_body[i] + 4. * rdotv * iVel[i]);
+#endif
+			}
 
 			noSun = 0;
 		}

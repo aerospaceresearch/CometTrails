@@ -39,6 +39,8 @@ option (PRD
 	"Simulate Poynting-Robertson drag" ON)
 option (SWD
 	"Simulate solar wind drag" ON)
+option (Relativity
+	"Simulate relativistic effects" ON)
 option (SaveRateOpt
 	"Increase number of saved states when close to planets" ON)
 if (MSVC)
@@ -92,6 +94,10 @@ if (SWD)
 	add_definitions(-D__SWD)
 	message("SWD ACTIVE")
 endif (SWD)
+if (Relativity)
+	add_definitions(-D__Relativity)
+	message("Relativity ACTIVE")
+endif (Relativity)
 if (SaveRateOpt)
 	add_definitions(-D__SaveRateOpt)
 	message("SaveRateOpt ACTIVE")
