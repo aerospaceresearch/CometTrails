@@ -64,10 +64,12 @@ void get_body_state(configuration_values *config_data, int body_index, SpiceDoub
 
 
 /* Calculate the acceleration of a particle based on the position of the body relative to the SSB */
+#define REL_GAMMA 1.0
+#define REL_BETA 1.0
 void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel, SpiceDouble *Vel, SpiceDouble dt)
 {
 	SpiceDouble c = 299792.458				// [km/s]
-		, r_body[3]							// [km]
+		, r_body[3]							// [km] particle -> body or r21
 		, absr = 0.							// [km]
 		, r3								// [km^3]
 		, GMr3								// [1/s^2]
@@ -135,11 +137,11 @@ void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceD
 
 			rp = iVel[0] * Sn[0] + iVel[1] * Sn[1] + iVel[2] * Sn[2]; // absolute change of the radius between body and particle [km/s]
 
-			absrp2 = absr * absr; // abs(radius)
+			absrp2 = absr * absr; // abs(radius)^2
 
 #ifdef __Relativity
 			absiVel = sqrt(iVel[0] * iVel[0] + iVel[1] * iVel[1] + iVel[2] * iVel[2]); // abs(speed)
-			rdotv = r_body[0] * iVel[0] + r_body[1] * iVel[1] + r_body[2] * iVel[2]; // (r * v) (vectors)
+			rdotv = -r_body[0] * iVel[0] - r_body[1] * iVel[1] - r_body[2] * iVel[2]; // (r12 * v) (vectors)
 #endif
 
 			GM_r2 = config_data->betaGM / (absrp2);
@@ -150,11 +152,8 @@ void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceD
 				accel[i] += GM_r2 * ((1. - SWDF * rp / c) * Sn[i] - SWDF * iVel[i] / c);
 
 #ifdef __Relativity
-				// add relativistic effects
-				// printf("\n relativity: %.10le", config_data->GM[b] / cp2 / absrp2 / absr * (4. * config_data->GM[b] * Sn[i] - absiVel * r_body[i] + 4. * rdotv * iVel[i]));
-				// printf("\n kp2cp2 / absrp2: %.10le", config_data->GM[b] / cp2 / absrp2);
-				// printf("\n rdotv: %.10le", rdotv);
-				accel[i] -= config_data->GM[b] / cp2 / absrp2 / absr * (4. * config_data->GM[b] * Sn[i] - absiVel * r_body[i] + 4. * rdotv * iVel[i]);
+				// add relativistic effects, formula from [229]{1975ApJ...200..221A}
+				accel[i] += config_data->GM[b] / cp2 / absrp2 / absr * (2. * (REL_BETA + REL_GAMMA) * config_data->GM[b] * Sn[i] - REL_GAMMA * absiVel * absiVel * -r_body[i] + 2. * (1. + REL_GAMMA) * rdotv * iVel[i]);
 #endif
 			}
 		}
@@ -168,7 +167,7 @@ void calc_accel(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceD
 int calc_save_factor(configuration_values *config_data, SpiceDouble dir_SSB[], SpiceDouble **body_state[], SpiceDouble *accel, SpiceDouble *Vel, SpiceDouble dt)
 {
 	SpiceDouble c = 299792.458				// [km/s]
-		, r_body[3]							// [km]
+		, r_body[3]							// [km] particle -> body or r21
 		, absr = 0.							// [km]
 		, r3								// [km^3]
 		, GMr3								// [1/s^2]
@@ -226,11 +225,11 @@ int calc_save_factor(configuration_values *config_data, SpiceDouble dir_SSB[], S
 
 			rp = iVel[0] * Sn[0] + iVel[1] * Sn[1] + iVel[2] * Sn[2]; // absolute change of the radius between body and particle [km/s]
 
-			absrp2 = absr * absr; // abs(radius)
+			absrp2 = absr * absr; // abs(radius)^2
 
 #ifdef __Relativity
 			absiVel = sqrt(iVel[0] * iVel[0] + iVel[1] * iVel[1] + iVel[2] * iVel[2]); // abs(speed)
-			rdotv = r_body[0] * iVel[0] + r_body[1] * iVel[1] + r_body[2] * iVel[2]; // (r * v) (vectors)
+			rdotv = -r_body[0] * iVel[0] - r_body[1] * iVel[1] - r_body[2] * iVel[2]; // (r12 * v) (vectors)
 #endif
 
 			GM_r2 = config_data->betaGM / (absrp2);
@@ -242,7 +241,7 @@ int calc_save_factor(configuration_values *config_data, SpiceDouble dir_SSB[], S
 
 #ifdef __Relativity
 				// add relativistic effects
-				solAccel[i] -= config_data->GM[b] / cp2 / absrp2 / absr * (4. * config_data->GM[b] * Sn[i] - absiVel * r_body[i] + 4. * rdotv * iVel[i]);
+				solAccel[i] += config_data->GM[b] / cp2 / absrp2 / absr * (2. * (REL_BETA + REL_GAMMA) * config_data->GM[b] * Sn[i] - REL_GAMMA * absiVel * absiVel * -r_body[i] + 2. * (1. + REL_GAMMA) * rdotv * iVel[i]);
 #endif
 			}
 
