@@ -66,7 +66,7 @@
 
 // Custom header files
 #include <PI_types.h> // configuration_values, configuration_readout
-#include <IntegEnv.h> // calc_accel(), printpdata(), calc_pInfo(), return_SSB()
+#include <IntegEnv.h> // get_body_state(), calc_accel(), calc_save_factor(), printpdata(), calc_pInfo(), interp_body_states_malloc(), interp_body_states_free(), interp_body_states(), precompute_dtime_powers()
 #include <RungeKutta4.h>
 #include <RungeKutta76.h>
 
@@ -1316,6 +1316,10 @@ void printinfo()
 	#ifdef __SWD
 		printf("SWD ");
 	#endif // __SWD
+
+	#ifdef __Relativity
+		printf("Relativity ");
+	#endif // __Relativity
 
 	#ifdef __SaveRateOpt
 		printf("SaveRateOpt ");
