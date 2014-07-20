@@ -9,7 +9,7 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 		, floating_stepcount = 0.;	// not strictly the step counter
 
 	config_data->saving = 0;
-	floating_stepcount = config_data->n		// Makes sure to save a state immediately when the saving period is entered
+	floating_stepcount = config_data->n;	// Makes sure to save a state immediately when the saving period is entered
 	
 	//Create body arrays and set initial body positions
 	SpiceDouble **body_pre, **body_mid, **body_end;
