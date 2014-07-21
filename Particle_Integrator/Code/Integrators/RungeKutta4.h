@@ -80,7 +80,6 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 		abs_acc = sqrt(k_acc_1[0] * k_acc_1[0] + k_acc_1[1] * k_acc_1[1] + k_acc_1[2] * k_acc_1[2]);
 		dt = (config_data->dv_step / abs_acc);
 
-#ifdef __SaveRateOpt
 		if (nstate[6] + dt > config_data->start_time_save)
 		{
 			if (config_data->saving != 1)
@@ -88,13 +87,15 @@ int RungeKutta4(configuration_values *config_data, SpiceDouble *nstate, FILE *st
 				config_data->saving = 1;
 			}
 
+#ifdef __SaveRateOpt
+		// save rate optimization for close encounters with un-sunny bodies.
 			if (calc_save_factor(config_data, dir_SSB, &body_pre, k_acc_1, initVel, 0.0))
 			{
 				printf("\n\nerror: Sun missing.");
 				return 1;
 			}
-		}
 #endif
+		}
 
 #ifdef __WSTEPINFO
 		if (dt < dtmin) // calculate smallest time step
