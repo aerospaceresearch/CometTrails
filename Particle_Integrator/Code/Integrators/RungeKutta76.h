@@ -97,8 +97,6 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		dir_SSB[2] = -(initPos[2]);
 		calc_accel(config_data, dir_SSB, &body[1], f[0], initVel, 0.);
 
-#ifdef __SaveRateOpt
-		// save rate optimization for close encounters with un-sunny bodies.
 		if ((nstate[6] + h) > config_data->start_time_save)
 		{
 			if (config_data->saving != 1)
@@ -106,13 +104,15 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 				config_data->saving = 1;
 			}
 
+#ifdef __SaveRateOpt
+		// save rate optimization for close encounters with un-sunny bodies.
 			if (calc_save_factor(config_data, dir_SSB, &body[1], f[0], initVel, 0.))
 			{
 				printf("\n\nerror: Sun missing.");
 				return 1;
 			}
-		}
 #endif
+		}
 
 		// dtime: time difference compared to time[0]
 		dtime[1] = time[1] - time[0];
