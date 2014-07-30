@@ -1288,18 +1288,40 @@ void printinfo()
 	printf("ParticleIntegrator version " PI_VERSION_MAJOR "." PI_VERSION_MINOR "\n");
 	// Print build type
 #ifdef RELTYPEDEB
-	printf("\n Debug build");
+	printf(" Debug build\n");
 #endif
 #ifdef RELTYPERWDI
-	printf("\n Release build with debug symbols");
+	printf(" Release build with debug symbols\n");
 #endif
 #ifdef RELTYPEREL
-	printf("\n Release build");
+	printf(" Release build\n");
 #endif
 
+	// Check windows
+#ifdef _WIN32 || _WIN64
+#ifdef _WIN64
+	printf(" Windows x86_64\n");
+#else
+	printf(" Windows x86\n");
+#endif
+#endif
+
+	// Check GCC
+#ifdef __GNUC__
+#ifdef __x86_64__
+	printf(" Linux x86_64\n");
+#else
+#ifdef __ppc64__
+	printf(" Linux ppc64\n");
+#else
+	printf(" Linux x86\n");
+#endif
+#endif
+#endif
+	
 	// Print active options in debug builds
 #if defined(RELTYPERWDI) || defined(RELTYPEDEB)
-	printf(", "__DATE__ " " __TIME__ "\n Options: ");
+	printf(" " __DATE__ " " __TIME__ "\n Options: ");
 
 	#ifdef __WTIMING
 		printf("TIMING ");
