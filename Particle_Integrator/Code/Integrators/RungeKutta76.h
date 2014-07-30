@@ -14,7 +14,6 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 		, tEps_p = 0.0;					// [km] temporary storage of partial error per space dimension
 
 	config_data->saving = 0;
-	floating_stepcount = config_data->n;		// Makes sure to save a state immediately when the saving period is entered
 
 	// Create body arrays and set initial body positions
 	SpiceDouble **(body[9]); // body[0] is t = time[1] - h, body[1] is t = time[1], ..., body[8] is t = time[1] + h
@@ -323,13 +322,13 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 #endif // __SaveRateOpt
 
 		// Save nth state
-		if (floating_stepcount >= config_data->n)
+		if (config_data->saving == 1)
 		{
-			if (config_data->saving == 1)
+			if (floating_stepcount >= config_data->n)
 			{
 				printpdata(statefile, nstate);
+				floating_stepcount = 0.;
 			}
-			floating_stepcount = 0.;
 		}
 	}
 
