@@ -176,7 +176,7 @@ int main(int argc, char* argv[])
 //Functions
 int parse_input(int argc, char *argv[])
 {
-	int i = 1, x = 3;
+	int i = 1, x = 3, valid;
 	while (i < argc)									/* Scan through args. */
 	{
 		if (strncmp(argv[i], "--", 2) == 0)				/* Check for option character. */
@@ -229,23 +229,27 @@ int parse_input(int argc, char *argv[])
 		}
 		else if (strncmp(argv[i], "-", 1) == 0)
 		{
+			valid = 0;
 			if (strspn("s", argv[i]) != 0){				//Specifies wether or not to convert to Sun-centered coordinates
 				suncflag = 1;							// before calculating orbital elements
-				i++;
+				valid = 1;
 			}
-			else if (strspn("v", argv[i]) != 0){		//Specifies wether or not velocities will be written to output
+			if (strspn("v", argv[i]) != 0){		//Specifies wether or not velocities will be written to output
 				velflag = 1;
-				i++;
+				valid = 1;
 			}
-			else if (strspn("n", argv[i]) != 0){		//Specifies wether or not to compute particle nodes
+			if (strspn("n", argv[i]) != 0){		//Specifies wether or not to compute particle nodes
 				nodeflag = 1;
-				i++;
+				valid = 1;
 			}
-			else if (strspn("p", argv[i]) != 0){		//Specifies wether or not to compute particle nodes
+			if (strspn("p", argv[i]) != 0){		//Specifies wether or not to compute particle nodes
 				pc2flag = 1;
+				valid = 1;
+			}
+			if (valid == 1){
 				i++;
 			}
-			else{
+			else {					//No valid character found
 				printf("\n\nerror: input argument %d is invalid", i);
 				return 1;
 			}

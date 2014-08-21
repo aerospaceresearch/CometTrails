@@ -32,7 +32,7 @@ add_executable(
 # OPTIONS
 
 option (WTIMING
-	"Measure computing duration" ON)
+	"Measure computing duration" OFF)
 option (WSTEPINFO
 	"Print time step extremes and number of steps" OFF)
 option (PRD
