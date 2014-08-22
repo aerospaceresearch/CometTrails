@@ -122,6 +122,7 @@ int main(int argc, char* argv[])
 	}	
 	//If there are no relevant WUs, but no error has occurred, return success
 	if (wu_count == 0){
+		free(wu_paths);
 		return 0;
 	}
 	
@@ -133,6 +134,7 @@ int main(int argc, char* argv[])
 	}
 	//If there are no relevant particles, but no error has occurred, return success
 	if (particles_count == 0){
+		free(nearest_states);
 		return 0;
 	}
 	
@@ -150,6 +152,7 @@ int main(int argc, char* argv[])
 			return 1;
 		}
 		if (particles_count == 0){
+			free(target_states);
 			return 0;
 		}
 	}
@@ -310,9 +313,8 @@ char **get_WU_paths(void)
 	// It determines what WUs are relevant and saves their names
 
 	printf("\nSeeking work units...		");
-	SLEEP(100);
 	char **all_wu_paths;
-	all_wu_paths = malloc(100000 * sizeof(char*));		// Max number of WUs is 10,000
+	all_wu_paths = malloc(100000 * sizeof(char*));		// Max number of WUs is 100,000
 	if (all_wu_paths == NULL){
 		printf("...failed.");
 		printf("\n\nerror: could not allocate all_wu_paths array (OOM)");
@@ -380,6 +382,9 @@ char **get_WU_paths(void)
 	if (wu_paths == NULL){
 		printf("...failed.");
 		printf("\n\nerror: could not allocate wu_paths array (OOM)");
+		for (i = 0; i < all_wu_count; i++){
+			free(all_wu_paths[i]);
+		}
 		free(all_wu_paths);
 		return NULL;
 	}
@@ -440,22 +445,24 @@ char **get_WU_paths(void)
 			all_particles_count += (int)(wu_header[1] - wu_header[0] + 1.5);
 		}
 	}
-	if (wu_fails != 0){
-		printf("...failed.");
-		printf("\n\nerror: %d work units could not be read", wu_fails);
-		free(wu_paths);
-		free(all_wu_paths);
-		return NULL;
-	}
-	if (wu_count == 0){
-		printf("...no relevant WUs found (%d).", all_wu_count);
-		free(all_wu_paths);
-		return wu_paths;
-	}
 	for (i = 0; i < all_wu_count; i++){
 		free(all_wu_paths[i]);
 	}
 	free(all_wu_paths);
+	if (wu_fails != 0){
+		printf("...failed.");
+		printf("\n\nerror: %d work units could not be read", wu_fails);
+		for (i = 0; i < wu_count; i++){
+			free(wu_paths[i]);
+		}
+		free(wu_paths);
+		return NULL;
+	}
+	if (wu_count == 0){
+		printf("...no relevant WUs found (%d).", all_wu_count);
+		return wu_paths;
+	}
+	
 	fcloseall();
 	printf("...done. %d (%d) work units found.", wu_count, all_wu_count);
 
@@ -793,7 +800,8 @@ float *filter_particles_out_of_range(float *target_states)
 	filtered_states = malloc(particles_count * 12 * sizeof(float));
 	if (filtered_states == NULL){
 		printf("...failed to filter particles.\n\nerror: could not allocate filtered_states array (OOM)");
-		return filtered_states;
+		free(target_states);
+		return NULL;
 	}
 	int i, filtered_particles_count = 0;
 
