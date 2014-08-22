@@ -79,7 +79,7 @@ float massspec[2];
 char *object_id;
 double object_state[6];
 double node_orbitplane_normvec[3];
-double Sun_GM, Sun_pos[3];
+double Sun_GM, Sun_state[6];
 double max_distance;
 
 
@@ -298,7 +298,7 @@ int parse_input(int argc, char *argv[])
 		if (objectflag == 0){
 			furnsh_c("kernels_spk.txt");	//de430.bsp kernel directory must be specified in "kernels_spk.txt"
 		}
-		spkezp_c(10, timespec[0], "ECLIPJ2000", "NONE", 0, Sun_pos, &lt);
+		spkezr_c("SUN", timespec[0], "ECLIPJ2000", "NONE", "SSB", Sun_state, &lt);
 	}
 	
 	return 0;
@@ -731,8 +731,8 @@ void calculate_target_state(double *nstate, double bGM)
 	etime = nstate[6];
 
 	if (suncflag == 1){
-		for (k = 0; k < 3; k++){
-			state[k] -= Sun_pos[k];
+		for (k = 0; k < 6; k++){
+			state[k] -= Sun_state[k];
 		}
 	}
 
@@ -775,8 +775,8 @@ void calculate_target_state(double *nstate, double bGM)
 	}
 
 	if (suncflag == 1){
-		for (k = 0; k < 3; k++){
-			state[k] += Sun_pos[k];
+		for (k = 0; k < 6; k++){
+			state[k] += Sun_state[k];
 		}
 	}
 	for (k = 0; k < 6; k++){
