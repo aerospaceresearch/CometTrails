@@ -187,7 +187,7 @@ int main(int argc, char *argv[])
 			}
 		}
 	}
-	particles_start = malloc((particles_count + 1) * sizeof(SpiceDouble *));
+	particles_start = malloc((particles_count) * sizeof(SpiceDouble *));
 	for (j = 0; j < particles_count; j++)
 	{
 		particles_start[j] = malloc(8 * sizeof(SpiceDouble));
@@ -197,17 +197,36 @@ int main(int argc, char *argv[])
 	j = -nCommentLines;
 	while (fgets(temp, sizeof(temp), particles_start_file) != NULL)
 	{
-		if (j >= 0) // Warning: sscanf functions will cause a crash if parameters are missing in the input file
+		if ((j >= 0) && (j <= particles_count)) // not for comment lines and check if the array entry to write to exists
 		{
 			char* cval = strtok_r(temp, "\t", &next_token);
 			for (g = 0; g < 6; g++)
 			{
+				if (strlen(cval) < 1) // If a variable is empty, no sscanf should happen to a void a read overrun. This is only possible if the input file is not formatted correctly.
+				{
+					printf("\n\nwarning: missing input parameter for at least one particle.");
+					break;
+				}
 				sscanf(cval, "%lf", &particles_start[j][g]);
 				cval = strtok_r(NULL, "\t", &next_token);
 			}
+			if (strlen(cval) < 1) // If a variable is empty, no sscanf should happen to a void a read overrun. This is only possible if the input file is not formatted correctly.
+			{
+				printf("\n\nwarning: missing input parameter for at least one particle.");
+				continue;
+			}
 			sscanf(cval, "%lf", &particles_start[j][6]);
 			cval = strtok_r(NULL, "\n", &next_token);
+			if (strlen(cval) < 1) // If a variable is empty, no sscanf should happen to a void a read overrun. This is only possible if the input file is not formatted correctly.
+			{
+				printf("\n\nwarning: missing input parameter for at least one particle.");
+				continue;
+			}
 			sscanf(cval, "%lf", &particles_start[j][7]);
+		}
+		else
+		{
+			printf("\n\nwarning: empty input.");
 		}
 		j++;
 	}
@@ -627,6 +646,7 @@ bool particle_in_file(int p, char path[])
 				if (particle_ID == p)
 				{
 					answer = true;
+					break; // stop looking
 				}
 			}
 			fclose(check);
