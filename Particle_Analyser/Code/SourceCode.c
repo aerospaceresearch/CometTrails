@@ -275,7 +275,12 @@ int parse_input(int argc, char *argv[])
 	if (objectflag == 1){
 		double lt;
 		furnsh_c("kernels_spk.txt");	//object kernel directory must be specified in "kernels_spk.txt"
-		spkezr_c(object_id, timespec[0], "ECLIPJ2000", "NONE", "SSB", object_state, &lt);
+		if (suncflag == 1){
+			spkezr_c(object_id, timespec[0], "ECLIPJ2000", "NONE", "SUN", object_state, &lt);
+		}
+		else{
+			spkezr_c(object_id, timespec[0], "ECLIPJ2000", "NONE", "SSB", object_state, &lt);
+		}
 
 		//Set up orbital plane for node computation
 		if (nodeflag == 1){
