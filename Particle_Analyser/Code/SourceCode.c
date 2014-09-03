@@ -515,7 +515,7 @@ float *get_particles(char **wu_paths)
 			wu_rows = fsize / (7 * sizeof(float));
 			rewind(finput);
 			float *fwu_array;
-			fwu_array = malloc(fsize + 1);
+			fwu_array = calloc((wu_rows + 1) * 7, sizeof(float));
 			if (fwu_array == NULL){
 #pragma omp atomic
 				wu_fails++;
