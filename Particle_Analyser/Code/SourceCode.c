@@ -602,7 +602,7 @@ char *search_WUsummary(void){
 				continue;
 			}
 			else if (strncmp((ext + 1), "txt", 3) == 0){		// makes sure you only try to read .txt files
-				WUsummary_path = strdup(FindData.cFileName);
+				WUsummary_path = strdup(ent->d_name);
 				printf("...found.");
 				printf("\nSelecting work units...		");
 				return WUsummary_path;
