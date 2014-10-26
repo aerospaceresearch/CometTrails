@@ -56,7 +56,6 @@
 //END  	Function cross-platform compatibility
 #define PI_half 3.14159265358979323846/2
 
-
 //Global variables
 int velflag = 0;
 int suncflag = 0;
@@ -87,6 +86,8 @@ double max_distance;
 int parse_input(int argc, char* argv[]);
 char **get_WU_paths(void);
 char *search_WUsummary(void);
+char **select_WUs(char *WUsummary_name);
+char **search_WUs(void);
 float *get_particles(char **wu_paths);
 int get_nearest_state(int z, float *fwu_array);
 int get_state_nearest_to_orbital_plane(int z, float *fwu_array);
@@ -319,8 +320,179 @@ int parse_input(int argc, char *argv[])
 
 char **get_WU_paths(void)
 {
-	char *WUsummary_path;
-	WUsummary_path = search_WUsummary();
+	char *WUsummary_name, **wu_paths_buffer, **wu_paths;
+	WUsummary_name = search_WUsummary();
+	if (WUsummary_name == NULL){
+		wu_paths_buffer = search_WUs();
+	}
+	else{
+		wu_paths_buffer = select_WUs(WUsummary_name);
+	}
+	if (wu_paths_buffer == NULL){
+		return NULL;
+	}
+
+	int i;
+	wu_paths = malloc((wu_count+1) * sizeof(char*));
+	if (wu_paths == NULL){
+		printf("...failed.");
+		printf("\n\nerror: could not allocate wu_paths array (OOM)");
+		return NULL;
+	}
+	for (i = 0; i < wu_count; i++){
+		wu_paths[i] = strdup(wu_paths_buffer[i]);
+		free(wu_paths_buffer[i]);
+	}
+	free(wu_paths_buffer);
+	return wu_paths;
+}
+
+char *search_WUsummary(void){
+
+	//Looking for WU summary file
+	printf("\nLooking for WU summary file...	");
+	char *WUsummary_name;
+
+#ifdef _WIN32					// Get path WUsummary under windows systems
+	HANDLE hFind;
+	WIN32_FIND_DATA FindData;
+	char findpath[256];
+	strcpy(findpath, 256, cometwu_path);
+	strcat(findpath, 256, OS_SEP);
+	strcat(findpath, 256, "*.txt");
+	hFind = FindFirstFile(findpath, &FindData);
+	if (hFind == INVALID_HANDLE_VALUE){
+		printf("...not found.");
+		return NULL;
+	}
+	WUsummary_name = strdup(FindData.cFileName);
+	FindClose(hFind);
+	printf("...found.");
+	return WUsummary_name;
+#else							// Get path WUsummary of WUs under linux
+	DIR *dir;
+	char *ext;
+	struct dirent *ent;
+	dir = opendir(cometwu_path);
+	if (dir){
+		while ((ent = readdir(dir)) != NULL){
+			ext = strrchr(ent->d_name, '.');
+			if (!ext){
+				continue;
+			}
+			else if (strncmp((ext + 1), "txt", 3) == 0){		// makes sure you only try to read .txt files
+				WUsummary_name = strdup(ent->d_name);
+				printf("...found.");
+				return WUsummary_name;
+			}
+		}
+	}
+	printf("...not found.");
+	return NULL;
+#endif
+
+}
+
+char **select_WUs(char *WUsummary_name)
+{
+	printf("\nSelecting work units...		");
+
+	char **all_wu_paths, WUsummary_path[256];
+	all_wu_paths = malloc(100000 * sizeof(char*));		// Max number of WUs is 100,000
+	if (all_wu_paths == NULL){
+		printf("...failed.");
+		printf("\n\nerror: could not allocate all_wu_paths array (OOM)");
+		return NULL;
+	}
+
+	FILE *WUsummary_file;
+	strcpy(WUsummary_path, 256, cometwu_path);
+	strcat(WUsummary_path, 256, OS_SEP);
+	strcat(WUsummary_path, 256, WUsummary_name);
+	fopen_s(&WUsummary_file, WUsummary_path, "r");
+	if (WUsummary_file == NULL){
+		printf("...failed.");
+		printf("\n\nerror:  could not open WU summary file; may be open in another program");
+		return NULL;
+	}
+	else{
+		char temp[512], *next_token = NULL;
+		float WU_mass = 0;
+		double WU_times[2];
+		int wu_missing_count = 0, WU_number_of_particles = 0, first_line = 1;
+		while ((fgets(temp, sizeof(temp), WUsummary_file)) != NULL){
+			if (first_line == 1){
+				first_line = 0;						//Skips first line in the WUsummary
+				continue;
+			}
+			all_wu_count++;
+			char* cval = strtok_r(temp, "\t", &next_token);
+			char* WU_name = cval;
+			cval = strtok_r(NULL, "\t", &next_token);
+			sscanf(cval, "%d", &WU_number_of_particles);
+			cval = strtok_r(NULL, "\t", &next_token);
+			sscanf(cval, "%f", &WU_mass);
+			cval = strtok_r(NULL, "\t", &next_token);
+			sscanf(cval, "%lf", &WU_times[0]);
+			cval = strtok_r(NULL, "\n", &next_token);
+			sscanf(cval, "%lf", &WU_times[1]);
+			if (WU_times[0] > timespec[0]){			// Particles must have been created before target time
+				continue;
+			}
+			if (tminflag == 1){
+				if (WU_times[1] < timespec[1]){		// Particles must have been created after tmin
+					continue;
+				}
+			}
+			if (tmaxflag == 1){
+				if (WU_times[0] > timespec[2]){		// Particles must have been created before tmax
+					continue;
+				}
+			}
+			if (mminflag == 1){
+				if (WU_mass < massspec[0]){		// Particles must be more massive than mmin
+					continue;
+				}
+			}
+			if (mmaxflag == 1){
+				if (WU_mass > massspec[1]){		// Particles must be less massive than mmax
+					continue;
+				}
+			}	
+			FILE *ftest;
+			char full_wu_path[256];
+			strcpy(full_wu_path, 256, cometwu_path);
+			strcat(full_wu_path, 256, OS_SEP);
+			strcat(full_wu_path, 256, WU_name);
+			strcat(full_wu_path, 256, ".ctwu");
+			fopen_s(&ftest, full_wu_path, "rb");
+			if (ftest == NULL){
+				wu_missing_count++;
+				continue;
+			}
+			fclose(ftest);
+			all_wu_paths[wu_count] = strdup(full_wu_path);
+			wu_count++;
+			all_particles_count += WU_number_of_particles;
+		}
+		fclose(WUsummary_file);
+		printf("...done.\n	The summary lists %d WUs, %d of which are relevant.", all_wu_count, (wu_count + wu_missing_count));
+		if (wu_missing_count != 0){
+			printf("\n	%d of the selected WUs are missing.", wu_missing_count);
+		}
+		if (wu_count == 0){
+			printf("	No WUs to process; quiting.");
+			return all_wu_paths;
+		}
+		return all_wu_paths;
+	}
+}
+
+char **search_WUs(void)
+{
+	//This function searches the INPUT path for all files named *.ctwu
+	// It determines what WUs are relevant and saves their names	
+	printf("\nSearching for work units...		");
 
 	char **all_wu_paths;
 	all_wu_paths = malloc(100000 * sizeof(char*));		// Max number of WUs is 100,000
@@ -330,148 +502,59 @@ char **get_WU_paths(void)
 		return NULL;
 	}
 
-	if (WUsummary_path != NULL){
-		FILE *WUsummary_file;
-		fopen_s(&WUsummary_file, WUsummary_path, "r");
-		if (WUsummary_file == NULL){
-			printf("...failed.");
-			printf("\n\nwarning:  could not open WU summary file\nSearching WUs instead...		");
-		}
-		else{
-			char temp[256], *next_token = NULL;
-			float WU_mass = 0;
-			double WU_times[2];
-			int i, wu_missing_count = 0;
-			while ((fgets(temp, sizeof(temp), WUsummary_file)) != NULL){
-				all_wu_count++;
-				char* cval = strtok_r(temp, "\t", &next_token);
-				char* WU_name = cval;
-				cval = strtok_r(NULL, "\t", &next_token);
-				cval = strtok_r(NULL, "\t", &next_token);
-				sscanf(cval, "%f", WU_mass);
-				cval = strtok_r(NULL, "\t", &next_token);
-				sscanf(cval, "%lf", WU_times[0]);
-				cval = strtok_r(NULL, "\n", &next_token);
-				sscanf(cval, "%lf", WU_times[1]);
-				if (WU_times[0] > timespec[0]){			// Particles must have been created before target time
-					continue;
-				}
-				if (tminflag == 1){
-					if (WU_times[1] < timespec[1]){		// Particles must have been created after tmin
-						continue;
-					}
-				}
-				if (tmaxflag == 1){
-					if (WU_times[0] > timespec[2]){		// Particles must have been created before tmax
-						continue;
-					}
-				}
-				if (mminflag == 1){
-					if (WU_mass < massspec[0]){		// Particles must be more massive than mmin
-						continue;
-					}
-				}
-				if (mmaxflag == 1){
-					if (WU_mass > massspec[1]){		// Particles must be less massive than mmax
-						continue;
-					}
-				}
-				FILE *ftest;
-				char full_wu_path[256];
-				strcpy(full_wu_path, 256, cometwu_path);
-				strcat(full_wu_path, 256, OS_SEP);
-				strcat(full_wu_path, 256, WU_name);
-				fopen_s(&ftest, full_wu_path, "r");
-				if (ftest == NULL){
-					wu_missing_count++;
-					continue;
-				}
-				else{
-					fclose(ftest);
-				}
-				all_wu_paths[wu_count] = WU_name;
-				wu_count++;
-			}
-			char **wu_paths;
-			wu_paths = malloc((wu_count+1) * sizeof(char*));
-			if (wu_paths == NULL){
-				printf("...failed.");
-				printf("\n\nerror: could not allocate wu_paths array (OOM)");
-				for (i = 0; i < wu_count; i++){
-					free(all_wu_paths[i]);
-				}
-				free(all_wu_paths);
-				return NULL;
-			}
-			for (i = 0; i < wu_count; i++){
-				wu_paths[i] = all_wu_paths[i];
-			}
-			for (i = 0; i < wu_count; i++){
-				free(all_wu_paths[i]);
-			}
-			free(all_wu_paths);
-			printf("...done. %d (%d) work units found. %d missing.", wu_count, all_wu_count, wu_missing_count);
-			return wu_paths;
-		}
-	}
-	
-	//This function searches the INPUT path for all files named *.ctwu
-	// It determines what WUs are relevant and saves their names	
-	
-
 
 #ifdef _WIN32					// Get paths of WUs under windows systems
-		HANDLE hFind;
-		WIN32_FIND_DATA FindData;
-		char findpath[256];
-		strcpy(findpath, 256, cometwu_path);
-		strcat(findpath, 256, OS_SEP);
-		strcat(findpath, 256, "*.ctwu");		// makes sure you only try to read .ctwu files
-		hFind = FindFirstFile(findpath, &FindData);
-		if (hFind == INVALID_HANDLE_VALUE){
-			printf("...failed.");
-			printf("\n\nerror: could not find work units in %s", cometwu_path);
-			free(all_wu_paths);
-			return NULL;
-		}
-		all_wu_paths[0] = strdup(FindData.cFileName);
+	HANDLE hFind;
+	WIN32_FIND_DATA FindData;
+	char findpath[256];
+	strcpy(findpath, 256, cometwu_path);
+	strcat(findpath, 256, OS_SEP);
+	strcat(findpath, 256, "*.ctwu");		// makes sure you only try to read .ctwu files
+	hFind = FindFirstFile(findpath, &FindData);
+	if (hFind == INVALID_HANDLE_VALUE){
+		printf("...failed.");
+		printf("\n\nerror: could not find work units in %s", cometwu_path);
+		free(all_wu_paths);
+		return NULL;
+	}
+	all_wu_paths[0] = strdup(FindData.cFileName);
+	all_wu_count++;
+	while (FindNextFile(hFind, &FindData)){
+		all_wu_paths[all_wu_count] = strdup(FindData.cFileName);
 		all_wu_count++;
-		while (FindNextFile(hFind, &FindData)){
-			all_wu_paths[all_wu_count] = strdup(FindData.cFileName);
-			all_wu_count++;
-		}
-		FindClose(hFind);
+	}
+	FindClose(hFind);
 #else							// Get paths of WUs under linux
-		DIR *dir;
-		char *ext;
-		struct dirent *ent;
-		dir = opendir(cometwu_path);
-		if (dir){
-			while ((ent = readdir(dir)) != NULL){
-				ext = strrchr(ent->d_name,'.');
-				if (!ext){
-					continue;
-				}
-				else if (strncmp((ext+1), "ctw", 3) == 0){		// makes sure you only try to read .ctwu files
-					all_wu_paths[all_wu_count] = strdup(ent->d_name);
-					all_wu_count++;
-				}
+	DIR *dir;
+	char *ext;
+	struct dirent *ent;
+	dir = opendir(cometwu_path);
+	if (dir){
+		while ((ent = readdir(dir)) != NULL){
+			ext = strrchr(ent->d_name, '.');
+			if (!ext){
+				continue;
+			}
+			else if (strncmp((ext + 1), "ctw", 3) == 0){		// makes sure you only try to read .ctwu files
+				all_wu_paths[all_wu_count] = strdup(ent->d_name);
+				all_wu_count++;
 			}
 		}
-		else{
-			printf("...failed.");
-			printf("\n\nerror: could not find directory %s", cometwu_path);
-			free(all_wu_paths);
-			return NULL;
-		}
+	}
+	else{
+		printf("...failed.");
+		printf("\n\nerror: could not find directory %s", cometwu_path);
+		free(all_wu_paths);
+		return NULL;
+	}
 
-		if (all_wu_count == 0){
-			printf("...failed.");
-			printf("\n\nerror: could not find work units in %s", cometwu_path);
-			free(all_wu_paths);
-			return NULL;
-		}
-		closedir(dir);
+	if (all_wu_count == 0){
+		printf("...failed.");
+		printf("\n\nerror: could not find work units in %s", cometwu_path);
+		free(all_wu_paths);
+		return NULL;
+	}
+	closedir(dir);
 #endif	
 
 	int i, wu_fails = 0;
@@ -486,7 +569,7 @@ char **get_WU_paths(void)
 		free(all_wu_paths);
 		return NULL;
 	}
-		//Check WUs' relevance in parallel
+	//Check WUs' relevance in parallel
 #pragma omp parallel
 	{
 		FILE *finput;
@@ -555,65 +638,15 @@ char **get_WU_paths(void)
 		free(wu_paths);
 		return NULL;
 	}
+
+	fcloseall();
+	printf("...done.\n	%d WUs were found, %d of which are relevant.", all_wu_count, wu_count);
 	if (wu_count == 0){
-		printf("...no relevant WUs found (%d).", all_wu_count);
+		printf("	No WUs to process; quiting.");
 		return wu_paths;
 	}
 
-	fcloseall();
-	printf("...done. %d (%d) work units found.", wu_count, all_wu_count);
-
 	return wu_paths;
-}
-
-char *search_WUsummary(void){
-
-	//Looking for WU summary file
-	printf("\nLooking for WU summary file...	");
-	char *WUsummary_path;
-
-#ifdef _WIN32					// Get path WUsummary under windows systems
-	HANDLE hFind;
-	WIN32_FIND_DATA FindData;
-	char findpath[256];
-	strcpy(findpath, 256, cometwu_path);
-	strcat(findpath, 256, OS_SEP);
-	strcat(findpath, 256, "*.txt");
-	hFind = FindFirstFile(findpath, &FindData);
-	if (hFind == INVALID_HANDLE_VALUE){
-		printf("...not found.");
-		printf("\nSeeking work units...		");
-		return NULL;
-	}
-	WUsummary_path = strdup(FindData.cFileName);
-	FindClose(hFind);
-	printf("...found.");
-	printf("\nSelecting work units...		");
-	return WUsummary_path;
-#else							// Get path WUsummary of WUs under linux
-	DIR *dir;
-	char *ext;
-	struct dirent *ent;
-	dir = opendir(cometwu_path);
-	if (dir){
-		while ((ent = readdir(dir)) != NULL){
-			ext = strrchr(ent->d_name, '.');
-			if (!ext){
-				continue;
-			}
-			else if (strncmp((ext + 1), "txt", 3) == 0){		// makes sure you only try to read .txt files
-				WUsummary_path = strdup(ent->d_name);
-				printf("...found.");
-				printf("\nSelecting work units...		");
-				return WUsummary_path;
-			}
-		}
-	}
-	printf("...not found.");
-	printf("\nSeeking work units...		");
-	return NULL;
-#endif
-
 }
 
 float *get_particles(char **wu_paths)
@@ -621,7 +654,7 @@ float *get_particles(char **wu_paths)
 	//This funtcion looks up relevant particles within the WUs found by **get_WU_paths,
 	// gets the properties of these particles and the nearest ouput state
 
-	printf("\nLoading particles...		");
+	printf("\n\nLoading particles...		");
 	float *nearest_states;
 	nearest_states = malloc(all_particles_count * 12 * sizeof(float));
 	if (nearest_states == NULL){
@@ -633,7 +666,7 @@ float *get_particles(char **wu_paths)
 	bodvcd_c(10, "GM", 1, &dim, &Sun_GM);				//Get standard gravitational parameter of the Sun
 
 	
-#pragma omp parallel
+#pragma omp parallel num_threads(1)
 	{
 		FILE *finput;
 		int wu_rows, fsize, corrupt_count;
@@ -649,6 +682,7 @@ float *get_particles(char **wu_paths)
 				wu_fails++;
 				continue;
 			}
+			
 			fseek(finput, 0, SEEK_END);					//Check WU number of rows to determine required array size
 			fsize = ftell(finput);
 			wu_rows = fsize / (7 * sizeof(float));
@@ -738,13 +772,10 @@ float *get_particles(char **wu_paths)
 				}
 				particles_count += wu_particle_count;
 			}
-
 			free(wu_nearest_states);
 			free(fwu_array);
-
 		}
 	}
-
 	for (i = 0; i < wu_count; i++){
 		free(wu_paths[i]);
 	}
@@ -773,7 +804,7 @@ float *get_particles(char **wu_paths)
 				nearest_states = temp_nearest_states;
 			}
 		}
-		printf("...done. %d (%d) particles loaded.", particles_count, all_particles_count);
+		printf("...done. %d relevant particles loaded.", particles_count);
 	}
 	fcloseall();
 	return nearest_states;
@@ -1007,7 +1038,7 @@ float *filter_particles_out_of_range(float *target_states)
 	free(target_states);
 	particles_count = filtered_particles_count;
 
-	printf("...done. %d particles left.", particles_count);
+	printf("...done. %d particles within distance.", particles_count);
 	return filtered_states;
 }
 
