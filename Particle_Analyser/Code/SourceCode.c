@@ -65,7 +65,9 @@ int tmaxflag = 0;
 int mminflag = 0;
 int mmaxflag = 0;
 int objectflag = 0;
+int intgflag = 0;
 int pc2flag = 0;
+
 
 
 int wu_count = 0;
@@ -79,6 +81,10 @@ char *object_id;
 double object_state[6];
 double node_orbitplane_normvec[3];
 double Sun_GM, Sun_state[6];
+int N_bodys = 0;
+int body_ID[10];
+double body_GM[10];
+double dv_step;
 double max_distance;
 
 
@@ -93,6 +99,8 @@ int get_nearest_state(int z, float *fwu_array);
 int get_state_nearest_to_orbital_plane(int z, float *fwu_array);
 float *get_all_target_states(float *nearest_states);
 void calculate_target_state(double *nstate, double GM);
+void integrate_target_state(double *nstate, double GM);
+void calc_accel(int N_bodys, double Sun_GM, double pos[], double **body_state[], double *accel);
 float *filter_particles_out_of_range(float *target_states);
 int save_target_states(float *target_states);
 
@@ -224,6 +232,19 @@ int parse_input(int argc, char *argv[])
 				objectflag = 1;
 				i = i + 3;
 			}
+			else if (strspn("intg", argv[i]) == 4){		//Specifies wether or not to integrate particle target states
+				dv_step = atof(argv[i + 1]);					// first parameter is dv_step
+				N_bodys = atoi(argv[i + 2]) + 1;				// second parameter is number of planets! Following parameters are NAIF IDs of the planets
+				int j;
+				SpiceInt dim;
+				body_ID[0] = 10;								// Sun is automatically added
+				for (j = 1; j < N_bodys; j++){
+					body_ID[j] = atoi(argv[i + 2 + j]);
+					bodvcd_c(body_ID[j], "GM", N_bodys, &dim, &body_GM[j]); // Get standard gravitational parameter of each body (GM)
+				}
+				intgflag = 1;
+				i = i + 3 + N_bodys - 1;
+			}
 			else{
 				printf("\n\nerror: input argument %d is invalid", i);
 				return 1;
@@ -244,7 +265,7 @@ int parse_input(int argc, char *argv[])
 				nodeflag = 1;
 				valid = 1;
 			}
-			if (strspn("p", argv[i]) != 0){		//Specifies wether or not to compute particle nodes
+			if (strspn("p", argv[i]) != 0){		//Specifies wether or not to write pointcache output format
 				pc2flag = 1;
 				valid = 1;
 			}
@@ -273,10 +294,14 @@ int parse_input(int argc, char *argv[])
 		return 1;
 	}
 
-	//Set up object location for relative coordinates computation
-	if (objectflag == 1){
-		double lt;
+	//Load additional kernels
+	if (objectflag == 1 || suncflag == 1){
 		furnsh_c("kernels_spk.txt");	//object kernel directory must be specified in "kernels_spk.txt"
+	}
+
+	//Set up object location for relative coordinates computation
+	double lt;
+	if (objectflag == 1){
 		if (suncflag == 1){
 			spkezr_c(object_id, timespec[0], "ECLIPJ2000", "NONE", "SUN", object_state, &lt);
 		}
@@ -308,10 +333,6 @@ int parse_input(int argc, char *argv[])
 
 	//Get Sun's position relative to Barycentric center (little to no effect)
 	if (suncflag == 1){
-		double lt;
-		if (objectflag == 0){
-			furnsh_c("kernels_spk.txt");	//de430.bsp kernel directory must be specified in "kernels_spk.txt"
-		}
 		spkezr_c("SUN", timespec[0], "ECLIPJ2000", "NONE", "SSB", Sun_state, &lt);
 	}
 	
@@ -757,9 +778,10 @@ float *get_particles(char **wu_paths)
 				j++;
 			}
 
+
 			//Alert if WU might be corrupt
 			if (corrupt_count != 0){
-				printf("\n %d particles left out because they have 0/0/0 coordinates. WU name:\n %s", corrupt_count, wu_paths[i]);
+				printf("\n %d particles left out because they have 0/0/0 coordinates. WU name:\n %s\n			", corrupt_count, wu_paths[i]);
 			}
 
 			//Write particles of current WU to shared array
@@ -776,6 +798,7 @@ float *get_particles(char **wu_paths)
 			free(fwu_array);
 		}
 	}
+
 	for (i = 0; i < wu_count; i++){
 		free(wu_paths[i]);
 	}
@@ -806,7 +829,8 @@ float *get_particles(char **wu_paths)
 		}
 		printf("...done. %d relevant particles loaded.", particles_count);
 	}
-	fcloseall();
+	//fcloseall();		//Causes a Spice bug when calling kernels. Possibly closes kernel files without Spice knowing?
+
 	return nearest_states;
 }
 
@@ -831,24 +855,33 @@ int get_nearest_state(int z, float *fwu_array)
 	}
 	
 	// Particles too distant to body are filtered out (only for nodes)
-	if (nodeflag == 1){
+	if (nodeflag == 1 || (intgflag == 1 && objectflag == 1)){
 		int k;
-		double orb_elts[8], state[6], etime, beta, bGM, rel_pos[3], distance;
+		double orb_elts[8], state[6], etime, beta, Sun_GM_beta, rel_pos[3], distance;
 		beta = (double)fwu_array[4];
-		bGM = Sun_GM * (1 - beta);
+		Sun_GM_beta = Sun_GM * (1 - beta);
 		for (k = 0; k < 6; k++){
 			state[k] = (double)fwu_array[i * 7 + k];
 		}
 		etime = (double)fwu_array[i * 7 + 6];
+		if (suncflag == 1){
+			for (k = 0; k < 6; k++){
+				state[k] -= Sun_state[k];
+			}
+		}
 #pragma omp critical(SPICE)
 		{
-			oscelt_c(state, etime, bGM, orb_elts);
+			oscelt_c(state, etime, Sun_GM_beta, orb_elts);
 			conics_c(orb_elts, timespec[0], state);
 		}
 		rel_pos[0] = state[0] - object_state[0];
 		rel_pos[1] = state[1] - object_state[1];
 		rel_pos[2] = state[2] - object_state[2];
-		
+		if (suncflag == 1){
+			for (k = 0; k < 6; k++){
+				state[k] += Sun_state[k];
+			}
+		}
 		distance = sqrt(rel_pos[0] * rel_pos[0] + rel_pos[1] * rel_pos[1] + rel_pos[2] * rel_pos[2]);
 		if (distance > max_distance){
 			return (z - 1);
@@ -894,23 +927,33 @@ float *get_all_target_states(float *nearest_states)
 {	
 	// This function administrates the calculation of all relevant particles in parallel
 
-	printf("\nCalculating target states...	");
-	int i;
+	if (intgflag == 0){
+		printf("\nCalculating target states...	");
+	}
+	else{
+		printf("\nIntegrating target states...	");
+	}
 
+	int i;
 #pragma omp parallel
 	{
-		double nstate[7], beta, bGM;
+		double nstate[7], beta, Sun_GM_beta;
 		int row, k;
 
 #pragma omp for
 		for (i = 0; i < particles_count; i++){
 			row = i * 12;
 			beta = (double) nearest_states[row + 10];
-			bGM = Sun_GM*(1 - beta);
+			Sun_GM_beta = Sun_GM*(1 - beta);
 			for (k = 0; k < 7; k++){
 				nstate[k] = (double) nearest_states[row + k];
 			}
-			calculate_target_state(nstate, bGM);	
+			if (intgflag == 0){
+				calculate_target_state(nstate, Sun_GM_beta);
+			}
+			else{
+				integrate_target_state(nstate, Sun_GM_beta);
+			}		
 			for (k = 0; k < 7; k++){
 				nearest_states[row + k] = (float) nstate[k];
 			}
@@ -922,7 +965,7 @@ float *get_all_target_states(float *nearest_states)
 	return nearest_states;
 }
 
-void calculate_target_state(double *nstate, double bGM)
+void calculate_target_state(double *nstate, double Sun_GM_beta)
 {
 	//This function calculates the particle state at the target time or the partcile node
 	// (depending on what has been set) based on the nearest output state
@@ -940,12 +983,16 @@ void calculate_target_state(double *nstate, double bGM)
 		}
 	}
 
+#pragma omp critical(SPICE)
+	{
+		oscelt_c(state, etime, Sun_GM_beta, orb_elts);		//Convert state to orbital elements
+	}
+
 	// If nodeflag is not set, calculate particle positions at target time using KEPLER orbits computed with SPICE
 	if (nodeflag == 0){
 			
 #pragma omp critical(SPICE)
 		{
-			oscelt_c(state, etime, bGM, orb_elts);		//Convert state to orbital elements
 			conics_c(orb_elts, timespec[0], state);			//Convert orbital elements to state at target time
 		}
 
@@ -967,10 +1014,9 @@ void calculate_target_state(double *nstate, double bGM)
 			if ((plane_distance > 0 && angle_vel_norm < PI_half) || (plane_distance < 0 && angle_vel_norm > PI_half)){
 				dt = -dt;
 			}
+			etime += dt;
 #pragma omp critical(SPICE)
 			{
-				oscelt_c(state, etime, bGM, orb_elts);
-				etime += dt;
 				conics_c(orb_elts, etime, state);
 			}
 		}	
@@ -985,6 +1031,253 @@ void calculate_target_state(double *nstate, double bGM)
 	}
 	for (k = 0; k < 6; k++){
 		nstate[k] = state[k];
+	}
+}
+
+void integrate_target_state(double *nstate, double Sun_GM_beta)
+{
+	//This function integrates the particle state at the target time
+	// (depending on what has been set) based on the nearest output state
+
+	int j;
+	double lt, dt, dt2, abs_acc, pos[3];
+	double **body_pre, **body_mid, **body_end;
+	double k_acc_1[3], k_acc_2[3], k_acc_3[3], k_acc_4[3];
+	double k_vel_1[3], k_vel_2[3], k_vel_3[3], k_vel_4[3];
+
+	body_pre = malloc(N_bodys * sizeof(int *));
+	body_mid = malloc(N_bodys * sizeof(int *));
+	body_end = malloc(N_bodys * sizeof(int *));
+	if (body_pre == NULL || body_mid == NULL || body_end == NULL)
+	{
+		printf("\nerror: could not allocate body state array (OOM)");
+		//Abort...
+	}
+	for (j = 0; j < N_bodys; j++)
+	{
+		body_pre[j] = malloc(3 * sizeof(double));
+		body_mid[j] = malloc(3 * sizeof(double));
+		body_end[j] = malloc(3 * sizeof(double));
+		if (body_pre[j] == NULL || body_mid[j] == NULL || body_end[j] == NULL)
+		{
+			printf("\n\nerror: could not allocate body state array (OOM)");
+			//Abort...
+		}
+#pragma omp critical(SPICE)
+		{
+			//Critical section is only executed on one thread at a time (spice is not threadsafe)
+			spkezp_c(body_ID[j], nstate[6], "ECLIPJ2000", "NONE", 0, body_end[j], &lt);
+		}
+	}
+
+	//Integrate
+	if (nodeflag == 0){
+		while (nstate[6] < timespec[0])
+		{
+			for (j = 0; j < N_bodys; j++)
+			{
+				body_pre[j][0] = body_end[j][0];
+				body_pre[j][1] = body_end[j][1];
+				body_pre[j][2] = body_end[j][2];
+			}
+
+			//Step 1
+			pos[0] = nstate[0];
+			pos[1] = nstate[1];
+			pos[2] = nstate[2];
+			calc_accel(N_bodys, Sun_GM_beta, nstate, &body_pre, k_acc_1);
+			k_vel_1[0] = nstate[3];
+			k_vel_1[1] = nstate[4];
+			k_vel_1[2] = nstate[5];
+
+			//Set dynamic step size
+			abs_acc = sqrt(k_acc_1[0] * k_acc_1[0] + k_acc_1[1] * k_acc_1[1] + k_acc_1[2] * k_acc_1[2]);
+			dt = (dv_step / abs_acc);
+			if (nstate[6] + dt >  timespec[0])
+			{
+				dt = fabs(timespec[0] - nstate[6]);			//End on final_time exactly
+			}
+			dt2 = dt / 2;
+
+			//Get body positions with SPICE
+			for (j = 0; j < N_bodys; j++)
+			{
+#pragma omp critical(SPICE)
+				{
+					//Critical section is only executed on one thread at a time (not thread-safe)
+					spkezp_c(body_ID[j], nstate[6] + dt, "ECLIPJ2000", "NONE", 0, body_end[j], &lt);
+				}
+				body_mid[j][0] = (body_pre[j][0] + body_end[j][0]) / 2;
+				body_mid[j][1] = (body_pre[j][1] + body_end[j][1]) / 2;
+				body_mid[j][2] = (body_pre[j][2] + body_end[j][2]) / 2;
+			}
+
+			//Step 2
+			pos[0] = nstate[0] + k_vel_1[0] * dt2;
+			pos[1] = nstate[1] + k_vel_1[1] * dt2;
+			pos[2] = nstate[2] + k_vel_1[2] * dt2;
+			calc_accel(N_bodys, Sun_GM_beta, pos, &body_mid, k_acc_2);
+			k_vel_2[0] = nstate[3] + k_acc_1[0] * dt2;
+			k_vel_2[1] = nstate[4] + k_acc_1[1] * dt2;
+			k_vel_2[2] = nstate[5] + k_acc_1[2] * dt2;
+
+			//Step 3
+			pos[0] = nstate[0] + k_vel_2[0] * dt2;
+			pos[1] = nstate[1] + k_vel_2[1] * dt2;
+			pos[2] = nstate[2] + k_vel_2[2] * dt2;
+			calc_accel(N_bodys, Sun_GM_beta, pos, &body_mid, k_acc_3);
+			k_vel_3[0] = nstate[3] + k_acc_2[0] * dt2;
+			k_vel_3[1] = nstate[4] + k_acc_2[1] * dt2;
+			k_vel_3[2] = nstate[5] + k_acc_2[2] * dt2;
+
+			//Step 4
+			pos[0] = nstate[0] + k_vel_3[0] * dt;
+			pos[1] = nstate[1] + k_vel_3[1] * dt;
+			pos[2] = nstate[2] + k_vel_3[2] * dt;
+			calc_accel(N_bodys, Sun_GM_beta, pos, &body_end, k_acc_4);
+			k_vel_4[0] = nstate[3] + k_acc_3[0] * dt;
+			k_vel_4[1] = nstate[4] + k_acc_3[1] * dt;
+			k_vel_4[2] = nstate[5] + k_acc_3[2] * dt;
+
+			//Update solution
+			nstate[0] = nstate[0] + dt*(k_vel_1[0] + 2 * (k_vel_2[0] + k_vel_3[0]) + k_vel_4[0]) / 6;
+			nstate[1] = nstate[1] + dt*(k_vel_1[1] + 2 * (k_vel_2[1] + k_vel_3[1]) + k_vel_4[1]) / 6;
+			nstate[2] = nstate[2] + dt*(k_vel_1[2] + 2 * (k_vel_2[2] + k_vel_3[2]) + k_vel_4[2]) / 6;
+			nstate[3] = nstate[3] + dt*(k_acc_1[0] + 2 * (k_acc_2[0] + k_acc_3[0]) + k_acc_4[0]) / 6;
+			nstate[4] = nstate[4] + dt*(k_acc_1[1] + 2 * (k_acc_2[1] + k_acc_3[1]) + k_acc_4[1]) / 6;
+			nstate[5] = nstate[5] + dt*(k_acc_1[2] + 2 * (k_acc_2[2] + k_acc_3[2]) + k_acc_4[2]) / 6;
+			nstate[6] = nstate[6] + dt;
+		}
+	}
+	else{
+		double plane_distance, particle_speed, particle_speed_perpendicular, angle_vel_norm, dt_max;
+		plane_distance = nstate[0] * node_orbitplane_normvec[0] + nstate[1] * node_orbitplane_normvec[1] + nstate[2] * node_orbitplane_normvec[2];
+		while (fabs(plane_distance) > 100)
+		{
+			for (j = 0; j < N_bodys; j++)
+			{
+				body_pre[j][0] = body_end[j][0];
+				body_pre[j][1] = body_end[j][1];
+				body_pre[j][2] = body_end[j][2];
+			}
+
+			//Step 1
+			pos[0] = nstate[0];
+			pos[1] = nstate[1];
+			pos[2] = nstate[2];
+			calc_accel(N_bodys, Sun_GM_beta, nstate, &body_pre, k_acc_1);
+			k_vel_1[0] = nstate[3];
+			k_vel_1[1] = nstate[4];
+			k_vel_1[2] = nstate[5];
+
+			//Set dynamic step size
+			abs_acc = sqrt(k_acc_1[0] * k_acc_1[0] + k_acc_1[1] * k_acc_1[1] + k_acc_1[2] * k_acc_1[2]);
+			dt = (dv_step / abs_acc);
+
+			particle_speed = sqrt(nstate[3] * nstate[3] + nstate[4] * nstate[4] + nstate[5] * nstate[5]);
+			angle_vel_norm = acos((nstate[3] * node_orbitplane_normvec[0] + nstate[4] * node_orbitplane_normvec[1] + nstate[5] * node_orbitplane_normvec[2]) / particle_speed);
+			if ((plane_distance > 0 && angle_vel_norm < PI_half) || (plane_distance < 0 && angle_vel_norm > PI_half)){
+				break;
+			}
+			particle_speed_perpendicular = fabs(cos(angle_vel_norm)) * particle_speed;
+			dt_max = 0.9 * plane_distance / particle_speed_perpendicular;
+			if (dt >  dt_max)
+			{
+				dt = dt_max;			//Don't overshoot orbital plane
+			}
+			dt2 = dt / 2;
+
+			//Get body positions with SPICE
+			for (j = 0; j < N_bodys; j++)
+			{
+#pragma omp critical(SPICE)
+				{
+					//Critical section is only executed on one thread at a time (not thread-safe)
+					spkezp_c(body_ID[j], nstate[6] + dt, "ECLIPJ2000", "NONE", 0, body_end[j], &lt);
+				}
+				body_mid[j][0] = (body_pre[j][0] + body_end[j][0]) / 2;
+				body_mid[j][1] = (body_pre[j][1] + body_end[j][1]) / 2;
+				body_mid[j][2] = (body_pre[j][2] + body_end[j][2]) / 2;
+			}
+
+			//Step 2
+			pos[0] = nstate[0] + k_vel_1[0] * dt2;
+			pos[1] = nstate[1] + k_vel_1[1] * dt2;
+			pos[2] = nstate[2] + k_vel_1[2] * dt2;
+			calc_accel(N_bodys, Sun_GM_beta, pos, &body_mid, k_acc_2);
+			k_vel_2[0] = nstate[3] + k_acc_1[0] * dt2;
+			k_vel_2[1] = nstate[4] + k_acc_1[1] * dt2;
+			k_vel_2[2] = nstate[5] + k_acc_1[2] * dt2;
+
+			//Step 3
+			pos[0] = nstate[0] + k_vel_2[0] * dt2;
+			pos[1] = nstate[1] + k_vel_2[1] * dt2;
+			pos[2] = nstate[2] + k_vel_2[2] * dt2;
+			calc_accel(N_bodys, Sun_GM_beta, pos, &body_mid, k_acc_3);
+			k_vel_3[0] = nstate[3] + k_acc_2[0] * dt2;
+			k_vel_3[1] = nstate[4] + k_acc_2[1] * dt2;
+			k_vel_3[2] = nstate[5] + k_acc_2[2] * dt2;
+
+			//Step 4
+			pos[0] = nstate[0] + k_vel_3[0] * dt;
+			pos[1] = nstate[1] + k_vel_3[1] * dt;
+			pos[2] = nstate[2] + k_vel_3[2] * dt;
+			calc_accel(N_bodys, Sun_GM_beta, pos, &body_end, k_acc_4);
+			k_vel_4[0] = nstate[3] + k_acc_3[0] * dt;
+			k_vel_4[1] = nstate[4] + k_acc_3[1] * dt;
+			k_vel_4[2] = nstate[5] + k_acc_3[2] * dt;
+
+			//Update solution
+			nstate[0] = nstate[0] + dt*(k_vel_1[0] + 2 * (k_vel_2[0] + k_vel_3[0]) + k_vel_4[0]) / 6;
+			nstate[1] = nstate[1] + dt*(k_vel_1[1] + 2 * (k_vel_2[1] + k_vel_3[1]) + k_vel_4[1]) / 6;
+			nstate[2] = nstate[2] + dt*(k_vel_1[2] + 2 * (k_vel_2[2] + k_vel_3[2]) + k_vel_4[2]) / 6;
+			nstate[3] = nstate[3] + dt*(k_acc_1[0] + 2 * (k_acc_2[0] + k_acc_3[0]) + k_acc_4[0]) / 6;
+			nstate[4] = nstate[4] + dt*(k_acc_1[1] + 2 * (k_acc_2[1] + k_acc_3[1]) + k_acc_4[1]) / 6;
+			nstate[5] = nstate[5] + dt*(k_acc_1[2] + 2 * (k_acc_2[2] + k_acc_3[2]) + k_acc_4[2]) / 6;
+			nstate[6] = nstate[6] + dt;
+
+			plane_distance = nstate[0] * node_orbitplane_normvec[0] + nstate[1] * node_orbitplane_normvec[1] + nstate[2] * node_orbitplane_normvec[2];
+		}
+	}
+
+	//Deallocate body array
+	for (j = 0; j < N_bodys; j++)
+	{
+		free(body_pre[j]);
+		free(body_mid[j]);
+		free(body_end[j]);
+	}
+	free(body_pre);
+	free(body_mid);
+	free(body_end);
+}
+
+void calc_accel(int N_bodys, double Sun_GM_beta, double pos[], double **body_state[], double *accel)
+{
+	double direct_body[3], distance_pow3, GMr3;
+	int b;
+
+	//Sun
+	direct_body[0] = (*body_state)[0][0] - pos[0];		
+	direct_body[1] = (*body_state)[0][1] - pos[1];
+	direct_body[2] = (*body_state)[0][2] - pos[2];
+	distance_pow3 = pow(direct_body[0] * direct_body[0] + direct_body[1] * direct_body[1] + direct_body[2] * direct_body[2], 1.5);
+	GMr3 = Sun_GM_beta / distance_pow3;
+	accel[0] = GMr3 * direct_body[0];
+	accel[1] = GMr3 * direct_body[1];
+	accel[2] = GMr3 * direct_body[2];
+
+	//Other bodys
+	for (b = 1; b < N_bodys; b++)		
+	{
+		direct_body[0] = (*body_state)[b][0] - pos[0];
+		direct_body[1] = (*body_state)[b][1] - pos[1];
+		direct_body[2] = (*body_state)[b][2] - pos[2];
+		distance_pow3 = pow(direct_body[0] * direct_body[0] + direct_body[1] * direct_body[1] + direct_body[2] * direct_body[2], 1.5);
+		GMr3 = body_GM[b] / distance_pow3;
+		accel[0] += GMr3 * direct_body[0];
+		accel[1] += GMr3 * direct_body[1];
+		accel[2] += GMr3 * direct_body[2];
 	}
 }
 
