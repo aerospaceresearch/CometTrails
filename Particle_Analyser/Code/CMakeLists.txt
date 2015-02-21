@@ -9,8 +9,8 @@ set (PROJECT_SOURCE_DIR ${CMAKE_SOURCE_DIR})
 
 # VERSION
 
-set (ParticleAnalyser_VERSION_MAJOR 0)
-set (ParticleAnalyser_VERSION_MINOR 01)
+set (ParticleAnalyser_VERSION_MAJOR 1)
+set (ParticleAnalyser_VERSION_MINOR 0)
 
 # Passing on CMake Settings
 

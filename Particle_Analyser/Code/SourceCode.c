@@ -67,7 +67,7 @@ int mmaxflag = 0;
 int objectflag = 0;
 int intgflag = 0;
 int pc2flag = 0;
-
+int WUcheckflag = 0;
 
 
 int wu_count = 0;
@@ -103,6 +103,7 @@ void integrate_target_state(double *nstate, double GM);
 void calc_accel(int N_bodys, double Sun_GM, double pos[], double **body_state[], double *accel);
 float *filter_particles_out_of_range(float *target_states);
 int save_target_states(float *target_states);
+void WUcheck(char *WUsummary_name);
 
 
 //Main Program
@@ -128,6 +129,9 @@ int main(int argc, char* argv[])
 	char **wu_paths;
 	wu_paths = get_WU_paths();
 	if (wu_paths == NULL){
+		if (WUcheckflag == 1){
+			return 0;
+		}
 		return 1;
 	}	
 	//If there are no relevant WUs, but no error has occurred, return success
@@ -199,6 +203,11 @@ int parse_input(int argc, char *argv[])
 			else if (strspn("output", argv[i]) == 6){	//This is the file to write the results to
 				output_path = argv[i + 1];
 				i = i + 2;
+				x--;
+			}
+			else if (strspn("WUcheck", argv[i]) == 7){
+				WUcheckflag = 1;
+				i = i + 1;
 				x--;
 			}
 			else if (strspn("time", argv[i]) == 4){		//This is the target time
@@ -344,9 +353,17 @@ char **get_WU_paths(void)
 	char *WUsummary_name, **wu_paths_buffer, **wu_paths;
 	WUsummary_name = search_WUsummary();
 	if (WUsummary_name == NULL){
+		if (WUcheckflag == 1){
+			printf("\n Failed to check for missing WUs because no WU summary file was found");
+			return NULL;
+		}
 		wu_paths_buffer = search_WUs();
 	}
 	else{
+		if (WUcheckflag == 1){
+			WUcheck(WUsummary_name);
+			return NULL;
+		}
 		wu_paths_buffer = select_WUs(WUsummary_name);
 	}
 	if (wu_paths_buffer == NULL){
@@ -1440,4 +1457,73 @@ int save_target_states(float *target_states)
 	
 	printf("...done.");
 	return 0;
+}
+
+void WUcheck(char *WUsummary_name){
+	printf("\nChecking work units...		");
+
+	char **missing_wu_names, WUsummary_path[256];
+	missing_wu_names = malloc(100000 * sizeof(char*));		// Max number of WUs is 100,000
+	if (missing_wu_names == NULL){
+		printf("...failed.");
+		printf("\n\nerror: could not allocate all_wu_paths array (OOM)");
+	}
+	else{
+		FILE *WUsummary_file;
+		strcpy(WUsummary_path, 256, cometwu_path);
+		strcat(WUsummary_path, 256, OS_SEP);
+		strcat(WUsummary_path, 256, WUsummary_name);
+		fopen_s(&WUsummary_file, WUsummary_path, "r");
+		if (WUsummary_file == NULL){
+			printf("...failed.");
+			printf("\n\nerror:  could not open WU summary file; may be open in another program");
+		}
+		else{
+			char temp[512], *next_token = NULL;
+			int wu_missing_count = 0, first_line = 1;
+			while ((fgets(temp, sizeof(temp), WUsummary_file)) != NULL){
+				if (first_line == 1){
+					first_line = 0;						//Skips first line in the WUsummary
+					continue;
+				}
+				all_wu_count++;
+				char* cval = strtok_r(temp, "\t", &next_token);
+				char* WU_name = cval;
+				FILE *ftest;
+				char full_wu_path[256];
+				strcpy(full_wu_path, 256, cometwu_path);
+				strcat(full_wu_path, 256, OS_SEP);
+				strcat(full_wu_path, 256, WU_name);
+				strcat(full_wu_path, 256, ".ctwu");
+				fopen_s(&ftest, full_wu_path, "rb");
+				if (ftest == NULL){
+					strcat(WU_name, 256, "\n");
+					missing_wu_names[wu_missing_count] = strdup(WU_name);
+					wu_missing_count++;
+					continue;
+				}
+				fclose(ftest);
+			}
+			fclose(WUsummary_file);
+			if (wu_missing_count == 0){
+				printf("...done.\n	The summary lists %d WUs, none of which are missing.\n", all_wu_count, wu_missing_count);
+			}
+			else{
+				printf("...done.\n	The summary lists %d WUs, %d of which are missing.", all_wu_count, wu_missing_count);
+				FILE *outputfile;
+				fopen_s(&outputfile, output_path, "w");
+				if (outputfile == NULL){
+					printf("\n\nerror: could not create output file");
+				}
+				else{
+					int i;
+					for (i = 0; i < wu_missing_count; i++){
+						fputs(missing_wu_names[i], outputfile);
+					}
+					fclose(outputfile);
+					printf("\n	Names of the missing WUs have been written to:\n	%s\n", output_path);
+				}
+			}
+		}
+	}
 }
