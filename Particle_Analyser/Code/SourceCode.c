@@ -1506,7 +1506,7 @@ void WUcheck(char *WUsummary_name){
 			}
 			fclose(WUsummary_file);
 			if (wu_missing_count == 0){
-				printf("...done.\n	The summary lists %d WUs, none of which are missing.\n", all_wu_count, wu_missing_count);
+				printf("...done.\n	The summary lists %d WUs, none of which are missing.\n", all_wu_count);
 			}
 			else{
 				printf("...done.\n	The summary lists %d WUs, %d of which are missing.", all_wu_count, wu_missing_count);
