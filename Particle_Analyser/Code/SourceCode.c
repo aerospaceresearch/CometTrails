@@ -677,7 +677,7 @@ char **search_WUs(void)
 		return NULL;
 	}
 
-	fcloseall();
+	//fcloseall();		//Causes a Spice bug when calling kernels. Possibly closes kernel files without Spice knowing?
 	printf("...done.\n	%d WUs were found, %d of which are relevant.", all_wu_count, wu_count);
 	if (wu_count == 0){
 		printf("	No WUs to process; quiting.");
