@@ -1213,10 +1213,10 @@ int convert_results_into_binary(configuration_values *config_data, int particles
 					return 2;
 				}
 			}
-			for (i = 0; i < 4; i++)
-			{
-				result_array[particle_header_row][i] = 0;
-			}
+			result_array[particle_header_row][0] = 0;
+			result_array[particle_header_row][1] = 0;
+			result_array[particle_header_row][2] = (float)(particle_header_row+1);						//row number of this particle's first state
+			result_array[particle_header_row][3] = (float)(particle_header_row+state_count);			//row number of this particle's last state
 			result_array[particle_header_row][4] = (float)(j + config_data->first_particle_number);
 			result_array[particle_header_row][5] = (float)(multiplication_factor[j]);
 			result_array[particle_header_row][6] = 0;
