@@ -770,9 +770,13 @@ float *get_particles(char **wu_paths)
 						j++;
 						continue;
 					}
-					else if (z == -1){
+					else if (z == -1){		// particle has 0/0/0 coordinates -> corrupt
 						j++;
 						corrupt_count++;
+						continue;
+					}
+					else if (z == -2){		// particle fell into the sun and will be ignored
+						j++;
 						continue;
 					}
 					if (nodeflag == 1){
@@ -861,6 +865,10 @@ int get_nearest_state(int z, float *fwu_array)
 			break;
 		}
 		i++;
+	}
+
+	if (fwu_array[i * 7 + 1] == 99){
+		return -2;							// This particle was terminated because it fell into the sun. Particle will be ignored.
 	}
 
 	if (fwu_array[i * 7] == 0){

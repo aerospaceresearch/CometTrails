@@ -49,7 +49,7 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 
 	// Create some more variables
 	SpiceDouble initPos[3], initVel[3], dir_SSB[3], time[9], dtime[9];
-	SpiceDouble f[9][3];
+	SpiceDouble f[9][3], sun_dist;
 
 	// Body coefficient variable
 	SpiceDouble **body_c[6]; // positions 4-6 may not be used for order = 2, or none for order = 0
@@ -320,6 +320,19 @@ int RungeKutta76(configuration_values *config_data, SpiceDouble *nstate, FILE *s
 #else
 		floating_stepcount += 1.;
 #endif // __SaveRateOpt
+
+		// If distance to the Sun is less than 10 sun radii terminate particle by setting coordinates to 99 and breaking integration loop
+		sun_dist = sqrt(nstate[0] * nstate[0] + nstate[1] * nstate[1] + nstate[2] * nstate[2]);
+		if (sun_dist < 7000000)
+		{
+			nstate[0] = 99;
+			nstate[1] = 99;
+			nstate[2] = 99;
+			nstate[3] = 99;
+			nstate[4] = 99;
+			nstate[5] = 99;
+			break;
+		}
 
 		// Save nth state
 		if (config_data->saving == 1)
